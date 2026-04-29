@@ -18,16 +18,10 @@ type FieldPreset = {
   positions: string[];
 };
 
-type PendingFieldAssignment = {
-  fielderName: string;
-  position: FieldPosition;
-};
-
 type SavedFormation = {
   id: string;
   name: string;
   players: SelectedPosition[];
-  teamPlayers: string[];
   isLeftHander: boolean;
   isEndOverRotated: boolean;
 };
@@ -195,8 +189,6 @@ const FIELD_DEPTH_GROUPS: Record<string, string[]> = {
 const STORAGE_KEY = "cricket-field-formation-v2";
 const SAVED_FORMATIONS_KEY = "cricket-field-saved-formations-v1";
 const MAX_POSITIONS = 11;
-const TEAM_PLAYER_COUNT = 12;
-const MANDATORY_TEAM_PLAYERS = 11;
 
 const createId = (name: string) =>
   name
@@ -276,13 +268,6 @@ const drawWrappedText = (
 
 const normalizeFielderName = (name: string) => name.trim().toLowerCase();
 
-const createEmptyTeamPlayers = () => Array.from({ length: TEAM_PLAYER_COUNT }, () => "");
-
-const normalizeTeamPlayers = (value: unknown) =>
-  Array.from({ length: TEAM_PLAYER_COUNT }, (_, index) =>
-    Array.isArray(value) && typeof value[index] === "string" ? value[index] : "",
-  );
-
 const normalizeSavedFormation = (data: unknown): SavedFormation | null => {
   if (!data || typeof data !== "object") return null;
   const formation = data as Partial<SavedFormation>;
@@ -292,7 +277,6 @@ const normalizeSavedFormation = (data: unknown): SavedFormation | null => {
     id: typeof formation.id === "string" ? formation.id : `${Date.now()}-${createId(formation.name)}`,
     name: formation.name,
     players: formation.players.map((player) => ({ ...player, fielderName: player.fielderName ?? "" })),
-    teamPlayers: normalizeTeamPlayers(formation.teamPlayers),
     isLeftHander: typeof formation.isLeftHander === "boolean" ? formation.isLeftHander : false,
     isEndOverRotated: typeof formation.isEndOverRotated === "boolean" ? formation.isEndOverRotated : false,
   };
@@ -300,8 +284,6 @@ const normalizeSavedFormation = (data: unknown): SavedFormation | null => {
 
 export default function App() {
   const [players, setPlayers] = useState<SelectedPosition[]>([]);
-  const [teamPlayers, setTeamPlayers] = useState<string[]>(createEmptyTeamPlayers);
-  const [pendingFieldAssignment, setPendingFieldAssignment] = useState<PendingFieldAssignment | null>(null);
   const [savedFormations, setSavedFormations] = useState<SavedFormation[]>([]);
   const [activeFormationId, setActiveFormationId] = useState("");
   const [formationName, setFormationName] = useState("My Formation");
@@ -334,7 +316,6 @@ export default function App() {
       if (legacyFormation) {
         setPlayers(legacyFormation.players);
         setFormationName(legacyFormation.name);
-        setTeamPlayers(legacyFormation.teamPlayers);
         setIsLeftHander(legacyFormation.isLeftHander);
         setIsEndOverRotated(legacyFormation.isEndOverRotated);
       }
@@ -385,12 +366,6 @@ export default function App() {
       .filter(Boolean);
   }, [players]);
 
-  const missingMandatoryTeamPlayers = useMemo(
-    () => teamPlayers.slice(0, MANDATORY_TEAM_PLAYERS).filter((name) => !name.trim()).length,
-    [teamPlayers],
-  );
-  const filledTeamPlayers = useMemo(() => teamPlayers.filter((name) => name.trim()).length, [teamPlayers]);
-
   const saveFormation = () => {
     if (duplicateMessage) {
       alert(duplicateMessage);
@@ -401,7 +376,6 @@ export default function App() {
       id: activeFormationId || `${Date.now()}-${createId(formationName || "formation")}`,
       name: formationName.trim() || "Untitled Formation",
       players,
-      teamPlayers,
       isLeftHander,
       isEndOverRotated,
     };
@@ -427,7 +401,6 @@ export default function App() {
       id: `${Date.now()}-${createId(formationName || "formation")}`,
       name: formationName.trim() || "Untitled Formation",
       players,
-      teamPlayers,
       isLeftHander,
       isEndOverRotated,
     };
@@ -448,7 +421,6 @@ export default function App() {
     setActiveFormationId(savedFormation.id);
     setFormationName(savedFormation.name);
     setPlayers(savedFormation.players);
-    setTeamPlayers(normalizeTeamPlayers(savedFormation.teamPlayers));
     setIsLeftHander(savedFormation.isLeftHander);
     setIsEndOverRotated(savedFormation.isEndOverRotated);
   };
@@ -594,95 +566,27 @@ export default function App() {
     setPlayers((prev) => prev.map((player) => (player.id === id ? { ...player, fielderName } : player)));
   };
 
-  const renameTeamPlayer = (index: number, name: string) => {
-    setTeamPlayers((prev) => prev.map((playerName, playerIndex) => (playerIndex === index ? name : playerName)));
-  };
-
-  const assignTeamPlayer = (id: string, fielderName: string) => {
-    setPlayers((prev) => prev.map((player) => (player.id === id ? { ...player, fielderName } : player)));
-  };
-
-  const assignTeamPlayerToNextEmptyPosition = (fielderName: string) => {
+  const handleFielderChipDragStart = (event: React.DragEvent<HTMLButtonElement>, id: string, fielderName: string) => {
     const trimmedName = fielderName.trim();
     if (!trimmedName) return;
-
-    setPlayers((prev) => {
-      const nextEmptyPlayer = prev.find((player) => !player.fielderName.trim());
-      if (!nextEmptyPlayer) return prev;
-      return prev.map((player) =>
-        player.id === nextEmptyPlayer.id ? { ...player, fielderName: trimmedName } : player,
-      );
-    });
-  };
-
-  const handleTeamPlayerDragStart = (event: React.DragEvent<HTMLButtonElement>, fielderName: string) => {
-    const trimmedName = fielderName.trim();
-    if (!trimmedName) return;
+    event.dataTransfer.setData("application/x-fielder-id", id);
     event.dataTransfer.setData("text/plain", trimmedName);
-    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.effectAllowed = "move";
   };
 
-  const handleFielderNameDrop = (event: React.DragEvent<HTMLInputElement>, id: string) => {
+  const handleFielderDrop = (event: React.DragEvent<HTMLInputElement>, targetId: string) => {
     event.preventDefault();
-    const droppedName = event.dataTransfer.getData("text/plain").trim();
-    if (!droppedName) return;
-    assignTeamPlayer(id, droppedName);
-  };
-
-  const getNearestFieldPosition = (x: number, y: number) =>
-    FIELD_POSITIONS.map((position) => getFieldPosition(position, isLeftHander, isEndOverRotated)).reduce(
-      (nearest, position) => {
-        const distance = Math.hypot(position.x - x, position.y - y);
-        if (distance < nearest.distance) {
-          return { position, distance };
-        }
-        return nearest;
-      },
-      { position: getPositionByName("Point", isLeftHander, isEndOverRotated), distance: Number.POSITIVE_INFINITY },
-    ).position;
-
-  const handleFieldDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    if (!fieldRef.current) return;
-
+    const sourceId = event.dataTransfer.getData("application/x-fielder-id");
     const droppedName = event.dataTransfer.getData("text/plain").trim();
     if (!droppedName) return;
 
-    const rect = fieldRef.current.getBoundingClientRect();
-    const x = Math.max(4, Math.min(96, ((event.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(4, Math.min(96, ((event.clientY - rect.top) / rect.height) * 100));
-
-    setPendingFieldAssignment({
-      fielderName: droppedName,
-      position: getNearestFieldPosition(x, y),
-    });
-  };
-
-  const confirmFieldAssignment = () => {
-    if (!pendingFieldAssignment) return;
-
-    setPlayers((prev) => {
-      const existingPlayer = prev.find((player) => player.name === pendingFieldAssignment.position.name);
-      if (existingPlayer) {
-        return prev.map((player) =>
-          player.id === existingPlayer.id
-            ? { ...player, fielderName: pendingFieldAssignment.fielderName }
-            : player,
-        );
-      }
-
-      if (prev.length >= MAX_POSITIONS) return prev;
-
-      return [
-        ...prev,
-        {
-          id: createId(pendingFieldAssignment.position.name),
-          fielderName: pendingFieldAssignment.fielderName,
-          ...pendingFieldAssignment.position,
-        },
-      ];
-    });
-    setPendingFieldAssignment(null);
+    setPlayers((prev) =>
+      prev.map((player) => {
+        if (player.id === targetId) return { ...player, fielderName: droppedName };
+        if (sourceId && player.id === sourceId && sourceId !== targetId) return { ...player, fielderName: "" };
+        return player;
+      }),
+    );
   };
 
   const changeBatterHand = (nextIsLeftHander: boolean) => {
@@ -788,12 +692,7 @@ export default function App() {
       </section>
 
       <section className="fieldWrap">
-        <div
-          className="field"
-          ref={fieldRef}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleFieldDrop}
-        >
+        <div className="field" ref={fieldRef}>
           <div className="innerCircle" />
           <div className="pitch" />
           {players.map((p) => (
@@ -813,23 +712,6 @@ export default function App() {
               <span>{p.fielderName || p.name}</span>
             </button>
           ))}
-          {pendingFieldAssignment && (
-            <div
-              className="assignmentConfirm"
-              style={{
-                left: `${pendingFieldAssignment.position.x}%`,
-                top: `${pendingFieldAssignment.position.y}%`,
-              }}
-            >
-              <p>
-                Assign {pendingFieldAssignment.fielderName} to {pendingFieldAssignment.position.name}?
-              </p>
-              <div>
-                <button onClick={confirmFieldAssignment}>Yes</button>
-                <button onClick={() => setPendingFieldAssignment(null)}>No</button>
-              </div>
-            </div>
-          )}
         </div>
       </section>
 
@@ -840,48 +722,7 @@ export default function App() {
             {players.length}/{MAX_POSITIONS}
           </span>
         </div>
-
-        <div className="teamSheet" aria-label="Team player names">
-          <div className="teamHeader">
-            <h2>Team players</h2>
-            <span>{filledTeamPlayers}/{TEAM_PLAYER_COUNT}</span>
-          </div>
-          <p className="teamHint">Drag a player to the field or a fielder box. On mobile, tap a player to fill the next empty position.</p>
-          <div className="teamGrid">
-            {teamPlayers.map((teamPlayer, index) => {
-              const trimmedName = teamPlayer.trim();
-              const isOptional = index >= MANDATORY_TEAM_PLAYERS;
-              return (
-                <label key={index} className="teamPlayer">
-                  <span>{isOptional ? "Optional" : `Player ${index + 1}`}</span>
-                  <input
-                    value={teamPlayer}
-                    onChange={(e) => renameTeamPlayer(index, e.target.value)}
-                    placeholder={isOptional ? "Impact sub" : "Player name"}
-                    required={!isOptional}
-                    aria-label={isOptional ? "Optional player name" : `Player ${index + 1} name`}
-                  />
-                  <button
-                    draggable={Boolean(trimmedName)}
-                    disabled={!trimmedName}
-                    onClick={() => assignTeamPlayerToNextEmptyPosition(trimmedName)}
-                    onDragStart={(e) => handleTeamPlayerDragStart(e, trimmedName)}
-                    type="button"
-                  >
-                    {trimmedName || "Empty"}
-                  </button>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-
-        {missingMandatoryTeamPlayers > 0 && (
-          <p className="warning advisory">
-            Add {MANDATORY_TEAM_PLAYERS} player names. {missingMandatoryTeamPlayers} mandatory slot
-            {missingMandatoryTeamPlayers === 1 ? "" : "s"} left.
-          </p>
-        )}
+        <p className="selectorHint">Choose a preset, enter fielder names, then drag a name chip to move that player to another position.</p>
 
         <div className="selectedList">
           {players.map((player) => (
@@ -893,17 +734,32 @@ export default function App() {
             >
               <label>
                 <span>{player.name}</span>
-                <input
-                  value={player.fielderName}
-                  onChange={(e) => renameFielder(player.id, e.target.value)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => handleFielderNameDrop(e, player.id)}
-                  placeholder="Fielder name"
-                  aria-label={`${player.name} fielder name`}
-                  aria-invalid={duplicateNameSet.has(normalizeFielderName(player.fielderName))}
-                />
+                <div className="nameEntry">
+                  <input
+                    value={player.fielderName}
+                    onChange={(e) => renameFielder(player.id, e.target.value)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleFielderDrop(e, player.id)}
+                    placeholder="Fielder name"
+                    aria-label={`${player.name} fielder name`}
+                    aria-invalid={duplicateNameSet.has(normalizeFielderName(player.fielderName))}
+                  />
+                  {player.fielderName.trim() && (
+                    <div className="nameChips" aria-label="Movable fielder name">
+                      <button
+                        type="button"
+                        draggable
+                        onClick={() => renameFielder(player.id, "")}
+                        onDragStart={(e) => handleFielderChipDragStart(e, player.id, player.fielderName)}
+                        title="Drag to another position, or tap to clear"
+                      >
+                        {player.fielderName.trim()}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </label>
-              <button onClick={() => removePosition(player.id)} aria-label={`Remove ${player.name}`}>
+              <button className="removePosition" onClick={() => removePosition(player.id)} aria-label={`Remove ${player.name}`}>
                 x
               </button>
             </div>
@@ -922,21 +778,24 @@ export default function App() {
           </p>
         ))}
 
-        <div className="positionGrid">
-          {FIELD_POSITIONS.map((position) => {
-            const isSelected = selectedNames.has(position.name);
-            return (
-              <button
-                key={position.name}
-                className={`positionOption ${isSelected ? "selected" : ""}`}
-                onClick={() => addPosition(position)}
-                disabled={isSelected || players.length >= MAX_POSITIONS}
-              >
-                {position.name}
-              </button>
-            );
-          })}
-        </div>
+        <details className="customPositions">
+          <summary>Add custom position</summary>
+          <div className="positionGrid">
+            {FIELD_POSITIONS.map((position) => {
+              const isSelected = selectedNames.has(position.name);
+              return (
+                <button
+                  key={position.name}
+                  className={`positionOption ${isSelected ? "selected" : ""}`}
+                  onClick={() => addPosition(position)}
+                  disabled={isSelected || players.length >= MAX_POSITIONS}
+                >
+                  {position.name}
+                </button>
+              );
+            })}
+          </div>
+        </details>
       </section>
 
       <footer className="actions">
