@@ -49,6 +49,34 @@ type FieldSuggestion = {
   y: number;
 };
 
+type PlannerTabId = "overview" | "practice" | "fitness" | "drills" | "team" | "fielding" | "match-notes";
+
+type ChecklistItem = {
+  id: string;
+  text: string;
+  done: boolean;
+};
+
+type PlannerSection = {
+  id: string;
+  sectionId: PlannerTabId;
+  workspaceId: string;
+  title: string;
+  goals: string;
+  checklistItems: ChecklistItem[];
+  notes: string;
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type PlannerTab = {
+  id: PlannerTabId;
+  label: string;
+  summary: string;
+};
+
 const FIELD_POSITIONS: FieldPosition[] = [
   { name: "Bowler", x: 50, y: 31 },
   { name: "Wicket Keeper", x: 50, y: 66 },
@@ -240,8 +268,122 @@ const FIELD_LABELS: Record<string, string> = {
 const STORAGE_KEY = "cricket-field-formation-v2";
 const SAVED_FORMATIONS_KEY = "cricket-field-saved-formations-v1";
 const BOWLER_PLANS_KEY = "cricket-field-bowler-plans-v1";
+const PLANNER_SECTIONS_KEY = "cricket-team-planner-sections-v1";
+const LOCAL_WORKSPACE_ID = "local-workspace";
+const LOCAL_USER_ID = "local-coach";
 const MAX_POSITIONS = 11;
 const REQUIRED_POSITIONS = ["Bowler", "Wicket Keeper"];
+
+const PLANNER_TABS: PlannerTab[] = [
+  {
+    id: "overview",
+    label: "Overview",
+    summary: "Team planning home with quick access to every coaching area.",
+  },
+  {
+    id: "practice",
+    label: "Practice",
+    summary: "Session goals, focus points, and practice-day checklist.",
+  },
+  {
+    id: "fitness",
+    label: "Fitness",
+    summary: "Conditioning, recovery, workloads, and fitness reminders.",
+  },
+  {
+    id: "drills",
+    label: "Drills",
+    summary: "Training drills, skills focus, and coaching cues.",
+  },
+  {
+    id: "team",
+    label: "Team",
+    summary: "Squad management, responsibilities, and team communication.",
+  },
+  {
+    id: "fielding",
+    label: "Fielding Setup",
+    summary: "Interactive ODI/T20 field formations and bowler scenario plans.",
+  },
+  {
+    id: "match-notes",
+    label: "Match Notes",
+    summary: "Match plans, observations, and post-game review notes.",
+  },
+];
+
+const PLANNER_TEMPLATE_DEFAULTS: Record<Exclude<PlannerTabId, "overview" | "fielding">, Omit<PlannerSection, "id" | "createdAt" | "updatedAt">> = {
+  practice: {
+    sectionId: "practice",
+    workspaceId: LOCAL_WORKSPACE_ID,
+    title: "Practice session",
+    goals: "Define session focus, skills to sharpen, and match scenario to rehearse.",
+    checklistItems: [
+      { id: "practice-warmup", text: "Warm-up and mobility complete", done: false },
+      { id: "practice-skill", text: "Primary skill block prepared", done: false },
+      { id: "practice-review", text: "End-of-session review notes captured", done: false },
+    ],
+    notes: "",
+    createdBy: LOCAL_USER_ID,
+    updatedBy: LOCAL_USER_ID,
+  },
+  fitness: {
+    sectionId: "fitness",
+    workspaceId: LOCAL_WORKSPACE_ID,
+    title: "Fitness session",
+    goals: "Track conditioning, strength, mobility, recovery, and workload balance.",
+    checklistItems: [
+      { id: "fitness-readiness", text: "Player readiness checked", done: false },
+      { id: "fitness-conditioning", text: "Conditioning or strength block complete", done: false },
+      { id: "fitness-recovery", text: "Recovery and hydration reminders shared", done: false },
+    ],
+    notes: "",
+    createdBy: LOCAL_USER_ID,
+    updatedBy: LOCAL_USER_ID,
+  },
+  drills: {
+    sectionId: "drills",
+    workspaceId: LOCAL_WORKSPACE_ID,
+    title: "Training drills",
+    goals: "Plan skill drills, coaching points, intensity, and progression.",
+    checklistItems: [
+      { id: "drills-batting", text: "Batting or bowling drill prepared", done: false },
+      { id: "drills-fielding", text: "Fielding drill prepared", done: false },
+      { id: "drills-constraint", text: "Match-like constraint added", done: false },
+    ],
+    notes: "",
+    createdBy: LOCAL_USER_ID,
+    updatedBy: LOCAL_USER_ID,
+  },
+  team: {
+    sectionId: "team",
+    workspaceId: LOCAL_WORKSPACE_ID,
+    title: "Team management",
+    goals: "Capture squad roles, communication points, availability, and responsibilities.",
+    checklistItems: [
+      { id: "team-availability", text: "Availability checked", done: false },
+      { id: "team-roles", text: "Roles and responsibilities confirmed", done: false },
+      { id: "team-message", text: "Team message or action items shared", done: false },
+    ],
+    notes: "",
+    createdBy: LOCAL_USER_ID,
+    updatedBy: LOCAL_USER_ID,
+  },
+  "match-notes": {
+    sectionId: "match-notes",
+    workspaceId: LOCAL_WORKSPACE_ID,
+    title: "Match notes",
+    goals: "Prepare match plans, tactical reminders, and post-game review notes.",
+    checklistItems: [
+      { id: "match-opposition", text: "Opposition strengths noted", done: false },
+      { id: "match-plan", text: "Bowling and batting plans reviewed", done: false },
+      { id: "match-review", text: "Post-match learnings captured", done: false },
+    ],
+    notes: "",
+    createdBy: LOCAL_USER_ID,
+    updatedBy: LOCAL_USER_ID,
+  },
+};
 
 const createId = (name: string) =>
   name
@@ -413,7 +555,66 @@ const normalizeBowlerPlan = (data: unknown): BowlerPlan | null => {
   };
 };
 
+const isPlannerTemplateTab = (
+  sectionId: PlannerTabId,
+): sectionId is Exclude<PlannerTabId, "overview" | "fielding"> =>
+  sectionId !== "overview" && sectionId !== "fielding";
+
+const createPlannerSection = (sectionId: Exclude<PlannerTabId, "overview" | "fielding">): PlannerSection => {
+  const now = new Date().toISOString();
+  const defaults = PLANNER_TEMPLATE_DEFAULTS[sectionId];
+
+  return {
+    ...defaults,
+    id: `${LOCAL_WORKSPACE_ID}-${sectionId}`,
+    checklistItems: defaults.checklistItems.map((item) => ({ ...item })),
+    createdAt: now,
+    updatedAt: now,
+  };
+};
+
+const normalizePlannerSection = (data: unknown): PlannerSection | null => {
+  if (!data || typeof data !== "object") return null;
+  const section = data as Partial<PlannerSection>;
+  if (typeof section.sectionId !== "string" || !isPlannerTemplateTab(section.sectionId as PlannerTabId)) return null;
+
+  const defaults = createPlannerSection(section.sectionId as Exclude<PlannerTabId, "overview" | "fielding">);
+  const checklistItems = Array.isArray(section.checklistItems)
+    ? section.checklistItems
+        .filter((item) => Boolean(item) && typeof item === "object")
+        .map((item, index) => ({
+          id: typeof (item as Partial<ChecklistItem>).id === "string" ? (item as Partial<ChecklistItem>).id! : `${defaults.id}-item-${index}`,
+          text: typeof (item as Partial<ChecklistItem>).text === "string" ? (item as Partial<ChecklistItem>).text! : "",
+          done: typeof (item as Partial<ChecklistItem>).done === "boolean" ? (item as Partial<ChecklistItem>).done! : false,
+        }))
+        .filter((item) => item.text.trim())
+    : defaults.checklistItems;
+
+  return {
+    ...defaults,
+    id: typeof section.id === "string" ? section.id : defaults.id,
+    workspaceId: typeof section.workspaceId === "string" ? section.workspaceId : LOCAL_WORKSPACE_ID,
+    title: typeof section.title === "string" ? section.title : defaults.title,
+    goals: typeof section.goals === "string" ? section.goals : defaults.goals,
+    checklistItems,
+    notes: typeof section.notes === "string" ? section.notes : defaults.notes,
+    createdBy: typeof section.createdBy === "string" ? section.createdBy : LOCAL_USER_ID,
+    updatedBy: typeof section.updatedBy === "string" ? section.updatedBy : LOCAL_USER_ID,
+    createdAt: typeof section.createdAt === "string" ? section.createdAt : defaults.createdAt,
+    updatedAt: typeof section.updatedAt === "string" ? section.updatedAt : defaults.updatedAt,
+  };
+};
+
 export default function App() {
+  const [activeTab, setActiveTab] = useState<PlannerTabId>("overview");
+  const [plannerSections, setPlannerSections] = useState<Record<string, PlannerSection>>(() =>
+    Object.fromEntries(
+      Object.keys(PLANNER_TEMPLATE_DEFAULTS).map((sectionId) => [
+        sectionId,
+        createPlannerSection(sectionId as Exclude<PlannerTabId, "overview" | "fielding">),
+      ]),
+    ),
+  );
   const [players, setPlayers] = useState<SelectedPosition[]>(() => ensureRequiredPositions([], false, false));
   const [savedFormations, setSavedFormations] = useState<SavedFormation[]>([]);
   const [bowlerPlans, setBowlerPlans] = useState<BowlerPlan[]>([]);
@@ -441,6 +642,26 @@ export default function App() {
   const bowlerPlanFieldRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    const plannerRaw = localStorage.getItem(PLANNER_SECTIONS_KEY);
+    if (plannerRaw) {
+      try {
+        const savedData = JSON.parse(plannerRaw);
+        if (Array.isArray(savedData)) {
+          const sections = savedData
+            .map((item) => normalizePlannerSection(item))
+            .filter((item): item is PlannerSection => Boolean(item));
+          if (sections.length) {
+            setPlannerSections((prev) => ({
+              ...prev,
+              ...Object.fromEntries(sections.map((section) => [section.sectionId, section])),
+            }));
+          }
+        }
+      } catch {
+        localStorage.removeItem(PLANNER_SECTIONS_KEY);
+      }
+    }
+
     const savedRaw = localStorage.getItem(SAVED_FORMATIONS_KEY);
     if (savedRaw) {
       try {
@@ -585,6 +806,61 @@ export default function App() {
   const persistBowlerPlans = (next: BowlerPlan[]) => {
     localStorage.setItem(BOWLER_PLANS_KEY, JSON.stringify(next));
     setBowlerPlans(next);
+  };
+
+  const persistPlannerSections = (next: Record<string, PlannerSection>) => {
+    localStorage.setItem(PLANNER_SECTIONS_KEY, JSON.stringify(Object.values(next)));
+    setPlannerSections(next);
+  };
+
+  const updatePlannerSection = (
+    sectionId: Exclude<PlannerTabId, "overview" | "fielding">,
+    updates: Partial<Pick<PlannerSection, "title" | "goals" | "notes" | "checklistItems">>,
+  ) => {
+    const current = plannerSections[sectionId] ?? createPlannerSection(sectionId);
+    persistPlannerSections({
+      ...plannerSections,
+      [sectionId]: {
+        ...current,
+        ...updates,
+        updatedBy: LOCAL_USER_ID,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+  };
+
+  const addChecklistItem = (sectionId: Exclude<PlannerTabId, "overview" | "fielding">) => {
+    const current = plannerSections[sectionId] ?? createPlannerSection(sectionId);
+    updatePlannerSection(sectionId, {
+      checklistItems: [
+        ...current.checklistItems,
+        {
+          id: `${sectionId}-${Date.now()}`,
+          text: "New checklist item",
+          done: false,
+        },
+      ],
+    });
+  };
+
+  const updateChecklistItem = (
+    sectionId: Exclude<PlannerTabId, "overview" | "fielding">,
+    itemId: string,
+    updates: Partial<ChecklistItem>,
+  ) => {
+    const current = plannerSections[sectionId] ?? createPlannerSection(sectionId);
+    updatePlannerSection(sectionId, {
+      checklistItems: current.checklistItems.map((item) =>
+        item.id === itemId ? { ...item, ...updates } : item,
+      ),
+    });
+  };
+
+  const removeChecklistItem = (sectionId: Exclude<PlannerTabId, "overview" | "fielding">, itemId: string) => {
+    const current = plannerSections[sectionId] ?? createPlannerSection(sectionId);
+    updatePlannerSection(sectionId, {
+      checklistItems: current.checklistItems.filter((item) => item.id !== itemId),
+    });
   };
 
   const saveFormation = () => {
@@ -1474,9 +1750,157 @@ export default function App() {
       } - ODI/T20 Field Planner`,
     [formationName, isLeftHander, isEndOverRotated],
   );
+  const activePlannerTab = PLANNER_TABS.find((tab) => tab.id === activeTab) ?? PLANNER_TABS[0];
+  const templateSectionId = isPlannerTemplateTab(activeTab) ? activeTab : null;
+  const templateSection = templateSectionId ? plannerSections[templateSectionId] ?? createPlannerSection(templateSectionId) : null;
+  const recentPlannerSections = Object.values(plannerSections)
+    .filter((section) => isPlannerTemplateTab(section.sectionId))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 3);
 
   return (
     <main className="app">
+      <header className="plannerHeader">
+        <div>
+          <p>Cricket Team Planner</p>
+          <h1>{activePlannerTab.label}</h1>
+        </div>
+        <span>Local coach workspace</span>
+      </header>
+
+      <nav className="plannerTabs" aria-label="Cricket team planner sections">
+        {PLANNER_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            className={activeTab === tab.id ? "active" : ""}
+            onClick={() => setActiveTab(tab.id)}
+            type="button"
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
+      {activeTab === "overview" && (
+        <section className="plannerOverview">
+          <div className="overviewHero">
+            <p>Shared workspace ready</p>
+            <h2>{teamName || "Team planning hub"}</h2>
+            <span>
+              Local-only for now, shaped for a future Supabase coach/admin login and shared team workspace.
+            </span>
+          </div>
+
+          <div className="overviewGrid">
+            {PLANNER_TABS.filter((tab) => tab.id !== "overview").map((tab) => (
+              <button key={tab.id} className="overviewCard" type="button" onClick={() => setActiveTab(tab.id)}>
+                <strong>{tab.label}</strong>
+                <span>{tab.summary}</span>
+              </button>
+            ))}
+          </div>
+
+          <section className="loginRoadmap" aria-label="Future login plan">
+            <h2>Future coach login</h2>
+            <p>
+              Planned for Supabase later: coach/admin accounts, shared team workspaces, and workspace-owned
+              planner data. Player view-only access can stay as a later phase.
+            </p>
+            <div>
+              <span>workspaces</span>
+              <span>workspace_members</span>
+              <span>planner_sections</span>
+              <span>field_formations</span>
+              <span>bowler_plans</span>
+            </div>
+          </section>
+
+          {recentPlannerSections.length > 0 && (
+            <section className="recentSections" aria-label="Recently updated planner sections">
+              <h2>Recently updated</h2>
+              {recentPlannerSections.map((section) => (
+                <button
+                  key={section.sectionId}
+                  type="button"
+                  onClick={() => setActiveTab(section.sectionId)}
+                >
+                  <strong>{PLANNER_TABS.find((tab) => tab.id === section.sectionId)?.label}</strong>
+                  <span>{section.title}</span>
+                </button>
+              ))}
+            </section>
+          )}
+        </section>
+      )}
+
+      {templateSectionId && templateSection && (
+        <section className="plannerTemplate" aria-label={`${activePlannerTab.label} planner`}>
+          <div className="templateHeading">
+            <div>
+              <h2>{activePlannerTab.label}</h2>
+              <p>{activePlannerTab.summary}</p>
+            </div>
+            <span>Saved {new Date(templateSection.updatedAt).toLocaleString()}</span>
+          </div>
+
+          <label className="templateField">
+            <span>Title</span>
+            <input
+              value={templateSection.title}
+              onChange={(e) => updatePlannerSection(templateSectionId, { title: e.target.value })}
+            />
+          </label>
+
+          <label className="templateField">
+            <span>Goals / focus</span>
+            <textarea
+              value={templateSection.goals}
+              onChange={(e) => updatePlannerSection(templateSectionId, { goals: e.target.value })}
+              rows={3}
+            />
+          </label>
+
+          <section className="checklistPanel" aria-label={`${activePlannerTab.label} checklist`}>
+            <div className="checklistHeader">
+              <h3>Checklist</h3>
+              <button type="button" onClick={() => addChecklistItem(templateSectionId)}>
+                Add item
+              </button>
+            </div>
+            {templateSection.checklistItems.map((item) => (
+              <div key={item.id} className="checklistItem">
+                <input
+                  type="checkbox"
+                  checked={item.done}
+                  onChange={(e) => updateChecklistItem(templateSectionId, item.id, { done: e.target.checked })}
+                  aria-label={`Complete ${item.text}`}
+                />
+                <input
+                  value={item.text}
+                  onChange={(e) => updateChecklistItem(templateSectionId, item.id, { text: e.target.value })}
+                  aria-label="Checklist item"
+                />
+                <button type="button" onClick={() => removeChecklistItem(templateSectionId, item.id)}>
+                  x
+                </button>
+              </div>
+            ))}
+          </section>
+
+          <label className="templateField">
+            <span>Notes</span>
+            <textarea
+              value={templateSection.notes}
+              onChange={(e) => updatePlannerSection(templateSectionId, { notes: e.target.value })}
+              rows={6}
+              placeholder="Add coaching notes, reminders, player observations, or follow-ups"
+            />
+          </label>
+        </section>
+      )}
+
+      {activeTab === "fielding" && (
+        <>
       <header className="topbar">
         <div className="identityFields">
           <label>
@@ -2011,6 +2435,8 @@ export default function App() {
       </footer>
 
       <p className="hint">{title}</p>
+        </>
+      )}
     </main>
   );
 }
