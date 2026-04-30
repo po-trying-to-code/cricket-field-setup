@@ -13,7 +13,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -23,19 +24,20 @@ input {
   grid-template-rows: auto auto auto auto auto;
   gap: 10px;
   padding: 10px;
+  width: 100%;
   max-width: 720px;
   margin: 0 auto;
+  overflow-x: hidden;
 }
 
 .topbar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 8px;
 }
 
 .nameInput,
 .savedSelect {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   border: 1px solid #cfd8e3;
   border-radius: 8px;
@@ -45,13 +47,37 @@ input {
   background: #ffffff;
 }
 
+.identityFields {
+  display: grid;
+  gap: 8px;
+}
+
+.identityFields label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  text-align: left;
+}
+
+.identityFields span {
+  color: #486581;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.saveControls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(3, minmax(0, auto));
+  gap: 8px;
+}
+
 .savedSelect {
-  flex-basis: 160px;
   font-weight: 700;
 }
 
 .topbar button,
 .actions button {
+  min-width: 0;
   border: 0;
   border-radius: 8px;
   padding: 10px 14px;
@@ -64,6 +90,82 @@ input {
 .actions button:disabled {
   background: #bcccdc;
   color: #f4f7fb;
+}
+
+@media (max-width: 520px) {
+  .app {
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .topbar {
+    gap: 6px;
+  }
+
+  .identityFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .identityFields span {
+    font-size: 11px;
+  }
+
+  .saveControls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .savedSelect {
+    grid-column: 1 / -1;
+  }
+
+  .topbar button,
+  .actions button {
+    padding: 8px 6px;
+    font-size: 12px;
+    line-height: 1.1;
+  }
+
+  .nameInput,
+  .savedSelect {
+    padding: 7px 8px;
+    font-size: 16px;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .batterToggle {
+    min-width: 0;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 5px;
+    font-size: 12px;
+  }
+
+  .batterToggle input {
+    width: 14px;
+    height: 14px;
+  }
+
+  .presetControl {
+    grid-column: 1 / -1;
+    width: 100%;
+    gap: 6px;
+    padding: 7px 8px;
+    font-size: 13px;
+  }
+
+  .presetControl select {
+    flex: 1;
+    max-width: none;
+    min-width: 0;
+    font-size: 16px;
+  }
 }
 
 .controls {
@@ -123,16 +225,61 @@ input {
 
 .field {
   position: relative;
-  width: min(95vw, 500px);
+  width: min(100%, 500px);
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   background:
+    radial-gradient(circle at center, transparent 0 58%, rgba(255, 255, 255, 0.08) 58.4% 58.8%, transparent 59.2%),
     radial-gradient(circle at center, rgba(255, 255, 255, 0.18) 0 1px, transparent 2px),
-    radial-gradient(circle at center, #4caf50 0%, #338a3e 70%, #276d31 100%);
-  background-size: 18px 18px, auto;
-  border: 3px solid #1d5a26;
+    radial-gradient(circle at center, #57b75b 0%, #3a9844 54%, #2f8438 72%, #266d30 100%);
+  background-size: auto, 18px 18px, auto;
+  border: 4px solid #1d5a26;
+  box-shadow: inset 0 0 0 8px #f7f7f2, inset 0 0 0 13px rgba(29, 90, 38, 0.55);
   overflow: hidden;
   touch-action: none;
+}
+
+.boundaryRope,
+.outerRing {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.boundaryRope {
+  inset: 2.5%;
+  border: 2px dashed rgba(255, 255, 255, 0.85);
+}
+
+.outerRing {
+  inset: 14%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+@media (max-width: 520px) {
+  .field {
+    width: min(100%, clamp(330px, 92vw, 390px));
+  }
+}
+
+@media (max-width: 400px) {
+  .field {
+    width: min(100%, clamp(310px, 90vw, 350px));
+  }
+
+  .player {
+    width: clamp(28px, 8vw, 36px);
+    min-height: clamp(28px, 8vw, 36px);
+    font-size: clamp(6px, 1.55vw, 8px);
+  }
+
+  .selectedList {
+    grid-template-columns: 1fr;
+  }
+
+  .positionGrid {
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  }
 }
 
 .innerCircle {
@@ -146,27 +293,126 @@ input {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 14%;
-  height: 32%;
+  width: 11%;
+  height: 27%;
   transform: translate(-50%, -50%);
   border-radius: 8px;
   background: #c8a06a;
   border: 2px solid #a47e4f;
 }
 
+.crease {
+  position: absolute;
+  left: 50%;
+  width: 170%;
+  height: 2px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.crease::before,
+.crease::after {
+  content: "";
+  position: absolute;
+  top: -9px;
+  width: 2px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.crease::before {
+  left: 34%;
+}
+
+.crease::after {
+  right: 34%;
+}
+
+.creaseTop {
+  top: 16%;
+}
+
+.creaseBottom {
+  bottom: 16%;
+}
+
+.stumps {
+  position: absolute;
+  left: 50%;
+  width: 2px;
+  height: 7%;
+  transform: translateX(-50%);
+  background: #fff7d6;
+  box-shadow: -4px 0 0 #fff7d6, 4px 0 0 #fff7d6;
+}
+
+.stumpsTop {
+  top: 7%;
+}
+
+.stumpsBottom {
+  bottom: 7%;
+}
+
+.batterIcon {
+  position: absolute;
+  left: 50%;
+  width: 9px;
+  height: 23px;
+  border-radius: 999px 999px 6px 6px;
+  background: #f7f7f2;
+  border: 1px solid #12355b;
+  transform-origin: center;
+}
+
+.batterIcon::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f7f7f2;
+  border: 1px solid #12355b;
+  transform: translateX(-50%);
+}
+
+.batterIcon::after {
+  content: "";
+  position: absolute;
+  right: -9px;
+  top: 6px;
+  width: 3px;
+  height: 24px;
+  border-radius: 999px;
+  background: #d8a13d;
+  transform: rotate(-24deg);
+}
+
+.batterTop {
+  top: 13%;
+  transform: translateX(70%) scale(0.72);
+}
+
+.batterBottom {
+  bottom: 13%;
+  transform: translateX(-170%) rotate(180deg) scale(0.72);
+}
+
 .player {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: clamp(42px, 12vw, 58px);
-  min-height: 42px;
+  width: clamp(32px, 8.5vw, 44px);
+  min-height: clamp(32px, 8.5vw, 44px);
   border-radius: 999px;
-  border: 2px solid #0b3d91;
+  border: 1.5px solid #0b3d91;
   background: #ffffff;
   color: #0b3d91;
   display: grid;
   place-items: center;
-  padding: 4px 6px;
-  font-size: clamp(9px, 2.2vw, 11px);
+  padding: 3px 4px;
+  font-size: clamp(7px, 1.7vw, 9px);
   line-height: 1.05;
   font-weight: 800;
   text-align: center;
@@ -174,7 +420,12 @@ input {
 
 .player span {
   pointer-events: none;
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .player.dragging {

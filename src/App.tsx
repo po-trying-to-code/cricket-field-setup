@@ -21,51 +21,52 @@ type FieldPreset = {
 type SavedFormation = {
   id: string;
   name: string;
+  teamName: string;
   players: SelectedPosition[];
   isLeftHander: boolean;
   isEndOverRotated: boolean;
 };
 
 const FIELD_POSITIONS: FieldPosition[] = [
-  { name: "Bowler", x: 50, y: 38 },
-  { name: "Wicket Keeper", x: 50, y: 76 },
-  { name: "First Slip", x: 43, y: 74 },
+  { name: "Bowler", x: 50, y: 31 },
+  { name: "Wicket Keeper", x: 50, y: 66 },
+  { name: "First Slip", x: 46, y: 72 },
   { name: "Second Slip", x: 39, y: 73 },
   { name: "Third Slip", x: 35, y: 72 },
   { name: "Fourth Slip", x: 31, y: 70 },
   { name: "Fly Slip", x: 24, y: 69 },
   { name: "Leg Slip", x: 57, y: 74 },
-  { name: "Gully", x: 32, y: 66 },
+  { name: "Gully", x: 39, y: 67 },
   { name: "Silly Point", x: 43, y: 56 },
   { name: "Short Leg", x: 57, y: 57 },
   { name: "Silly Mid-off", x: 45, y: 46 },
   { name: "Silly Mid-on", x: 55, y: 46 },
-  { name: "Backward Point", x: 22, y: 58 },
-  { name: "Point", x: 26, y: 54 },
+  { name: "Backward Point", x: 30, y: 62 },
+  { name: "Point", x: 26, y: 57 },
   { name: "Deep Point", x: 10, y: 53 },
   { name: "Deep Backward Point", x: 13, y: 63 },
   { name: "Cover Point", x: 29, y: 48 },
-  { name: "Cover", x: 34, y: 42 },
+  { name: "Cover", x: 31, y: 42 },
   { name: "Extra Cover", x: 39, y: 36 },
   { name: "Deep Cover", x: 17, y: 33 },
   { name: "Deep Extra Cover", x: 25, y: 23 },
   { name: "Sweeper Cover", x: 12, y: 42 },
-  { name: "Mid-off", x: 45, y: 35 },
-  { name: "Long-off", x: 42, y: 12 },
-  { name: "Mid-on", x: 55, y: 35 },
-  { name: "Long-on", x: 58, y: 12 },
+  { name: "Mid-off", x: 42, y: 28 },
+  { name: "Long-off", x: 36, y: 14 },
+  { name: "Mid-on", x: 58, y: 28 },
+  { name: "Long-on", x: 64, y: 14 },
   { name: "Straight Hit", x: 50, y: 8 },
   { name: "Midwicket", x: 66, y: 42 },
   { name: "Deep Midwicket", x: 83, y: 32 },
   { name: "Cow Corner", x: 77, y: 22 },
-  { name: "Square Leg", x: 73, y: 54 },
+  { name: "Square Leg", x: 72, y: 58 },
   { name: "Backward Square Leg", x: 74, y: 61 },
   { name: "Deep Square Leg", x: 90, y: 57 },
   { name: "Fine Leg", x: 63, y: 72 },
   { name: "Short Fine Leg", x: 58, y: 67 },
   { name: "Long Leg", x: 76, y: 82 },
   { name: "Deep Fine Leg", x: 65, y: 90 },
-  { name: "Short Third", x: 39, y: 67 },
+  { name: "Short Third", x: 37, y: 70 },
   { name: "Third Man", x: 25, y: 82 },
   { name: "Deep Third", x: 31, y: 91 },
   { name: "Long Stop", x: 50, y: 94 },
@@ -78,11 +79,11 @@ const DEFAULT_SELECTION = [
   "Cover",
   "Mid-off",
   "Mid-on",
-  "Midwicket",
+  "Gully",
   "Square Leg",
   "Fine Leg",
   "Third Man",
-  "Long-off",
+  "First Slip",
 ];
 
 const FIELD_PRESETS: FieldPreset[] = [
@@ -93,7 +94,7 @@ const FIELD_PRESETS: FieldPreset[] = [
       "Bowler",
       "Wicket Keeper",
       "First Slip",
-      "Short Third",
+      "Gully",
       "Backward Point",
       "Cover",
       "Mid-off",
@@ -112,9 +113,9 @@ const FIELD_PRESETS: FieldPreset[] = [
       "Short Third",
       "Point",
       "Cover",
-      "Mid-off",
+      "Long-off",
       "Fine Leg",
-      "Deep Cover",
+      "Sweeper Cover",
       "Midwicket",
       "Long-on",
       "Deep Square Leg",
@@ -148,7 +149,7 @@ const FIELD_PRESETS: FieldPreset[] = [
       "Cover",
       "Square Leg",
       "Short Fine Leg",
-      "Deep Extra Cover",
+      "Sweeper Cover",
       "Long-off",
       "Long-on",
       "Deep Midwicket",
@@ -156,7 +157,7 @@ const FIELD_PRESETS: FieldPreset[] = [
   },
   {
     id: "death-overs",
-    name: "Death overs - Boundary protection",
+    name: "Death overs / T20 non-powerplay - Boundary protection",
     positions: [
       "Bowler",
       "Wicket Keeper",
@@ -168,7 +169,7 @@ const FIELD_PRESETS: FieldPreset[] = [
       "Deep Midwicket",
       "Deep Square Leg",
       "Short Fine Leg",
-      "Deep Point",
+      "Sweeper Cover",
     ],
   },
 ];
@@ -184,6 +185,34 @@ const FIELD_DEPTH_GROUPS: Record<string, string[]> = {
   "fine leg": ["Fine Leg", "Short Fine Leg", "Deep Fine Leg"],
   third: ["Short Third", "Third Man", "Deep Third"],
   leg: ["Short Leg", "Long Leg"],
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  "Wicket Keeper": "WK",
+  "First Slip": "1st Slip",
+  "Second Slip": "2nd Slip",
+  "Third Slip": "3rd Slip",
+  "Fourth Slip": "4th Slip",
+  "Backward Point": "Bkwd Point",
+  "Cover Point": "Cov Point",
+  "Deep Point": "Deep Pt",
+  "Deep Backward Point": "Deep Bkwd",
+  "Extra Cover": "Extra Cov",
+  "Deep Cover": "Deep Cov",
+  "Deep Extra Cover": "Deep Extra",
+  "Sweeper Cover": "Sweeper",
+  "Silly Point": "Silly Pt",
+  "Silly Mid-off": "Silly M-off",
+  "Silly Mid-on": "Silly M-on",
+  "Short Third": "Short 3rd",
+  "Third Man": "3rd Man",
+  "Deep Third": "Deep 3rd",
+  "Short Fine Leg": "Short Fine",
+  "Deep Fine Leg": "Deep Fine",
+  "Backward Square Leg": "Bkwd Sq Leg",
+  "Deep Square Leg": "Deep Sq Leg",
+  "Deep Midwicket": "Deep Midwk",
+  "Straight Hit": "Straight",
 };
 
 const STORAGE_KEY = "cricket-field-formation-v2";
@@ -219,6 +248,18 @@ const getPositionByName = (name: string, isLeftHander: boolean, isEndOverRotated
   const position = FIELD_POSITIONS.find((item) => item.name === name) ?? { name, x: 50, y: 50 };
   return getFieldPosition(position, isLeftHander, isEndOverRotated);
 };
+
+const getNearestFieldPosition = (x: number, y: number, isLeftHander: boolean, isEndOverRotated: boolean) =>
+  FIELD_POSITIONS.map((position) => getFieldPosition(position, isLeftHander, isEndOverRotated)).reduce(
+    (nearest, position) => {
+      const distance = Math.hypot(position.x - x, position.y - y);
+      if (distance < nearest.distance) {
+        return { position, distance };
+      }
+      return nearest;
+    },
+    { position: getPositionByName("Point", isLeftHander, isEndOverRotated), distance: Number.POSITIVE_INFINITY },
+  ).position;
 
 const createSelectedPosition = (
   position: FieldPosition,
@@ -268,6 +309,8 @@ const drawWrappedText = (
 
 const normalizeFielderName = (name: string) => name.trim().toLowerCase();
 
+const getFieldLabel = (player: SelectedPosition) => player.fielderName.trim() || FIELD_LABELS[player.name] || player.name;
+
 const normalizeSavedFormation = (data: unknown): SavedFormation | null => {
   if (!data || typeof data !== "object") return null;
   const formation = data as Partial<SavedFormation>;
@@ -276,6 +319,7 @@ const normalizeSavedFormation = (data: unknown): SavedFormation | null => {
   return {
     id: typeof formation.id === "string" ? formation.id : `${Date.now()}-${createId(formation.name)}`,
     name: formation.name,
+    teamName: typeof formation.teamName === "string" ? formation.teamName : "",
     players: formation.players.map((player) => ({ ...player, fielderName: player.fielderName ?? "" })),
     isLeftHander: typeof formation.isLeftHander === "boolean" ? formation.isLeftHander : false,
     isEndOverRotated: typeof formation.isEndOverRotated === "boolean" ? formation.isEndOverRotated : false,
@@ -287,6 +331,7 @@ export default function App() {
   const [savedFormations, setSavedFormations] = useState<SavedFormation[]>([]);
   const [activeFormationId, setActiveFormationId] = useState("");
   const [formationName, setFormationName] = useState("My Formation");
+  const [teamName, setTeamName] = useState("");
   const [isLeftHander, setIsLeftHander] = useState(false);
   const [isEndOverRotated, setIsEndOverRotated] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -316,6 +361,7 @@ export default function App() {
       if (legacyFormation) {
         setPlayers(legacyFormation.players);
         setFormationName(legacyFormation.name);
+        setTeamName(legacyFormation.teamName);
         setIsLeftHander(legacyFormation.isLeftHander);
         setIsEndOverRotated(legacyFormation.isEndOverRotated);
       }
@@ -375,6 +421,7 @@ export default function App() {
     const savedFormation: SavedFormation = {
       id: activeFormationId || `${Date.now()}-${createId(formationName || "formation")}`,
       name: formationName.trim() || "Untitled Formation",
+      teamName: teamName.trim(),
       players,
       isLeftHander,
       isEndOverRotated,
@@ -400,6 +447,7 @@ export default function App() {
     const savedFormation: SavedFormation = {
       id: `${Date.now()}-${createId(formationName || "formation")}`,
       name: formationName.trim() || "Untitled Formation",
+      teamName: teamName.trim(),
       players,
       isLeftHander,
       isEndOverRotated,
@@ -420,6 +468,7 @@ export default function App() {
 
     setActiveFormationId(savedFormation.id);
     setFormationName(savedFormation.name);
+    setTeamName(savedFormation.teamName);
     setPlayers(savedFormation.players);
     setIsLeftHander(savedFormation.isLeftHander);
     setIsEndOverRotated(savedFormation.isEndOverRotated);
@@ -451,12 +500,14 @@ export default function App() {
     context.fillStyle = "#102a43";
     context.font = "700 42px Inter, Arial, sans-serif";
     context.textAlign = "center";
-    context.fillText(formationName || "Field Formation", size / 2, 58);
+    context.fillText(teamName || formationName || "Field Formation", size / 2, 58);
 
     context.fillStyle = "#486581";
     context.font = "500 24px Inter, Arial, sans-serif";
     context.fillText(
-      `${isLeftHander ? "Left" : "Right"}-hand batter${isEndOverRotated ? " - end of over" : ""}`,
+      `${teamName ? `${formationName || "Field Formation"} - ` : ""}${isLeftHander ? "Left" : "Right"}-hand batter${
+        isEndOverRotated ? " - end of over" : ""
+      }`,
       size / 2,
       96,
     );
@@ -473,7 +524,10 @@ export default function App() {
     context.arc(center, fieldTop + center, radius, 0, Math.PI * 2);
     context.fillStyle = gradient;
     context.fill();
-    context.lineWidth = 8;
+    context.lineWidth = 18;
+    context.strokeStyle = "#f7f7f2";
+    context.stroke();
+    context.lineWidth = 6;
     context.strokeStyle = "#1d5a26";
     context.stroke();
 
@@ -485,21 +539,89 @@ export default function App() {
     context.stroke();
     context.setLineDash([]);
 
-    const pitchWidth = size * 0.14;
-    const pitchHeight = size * 0.32;
+    context.beginPath();
+    context.arc(center, fieldTop + center, radius * 0.72, 0, Math.PI * 2);
+    context.lineWidth = 4;
+    context.strokeStyle = "rgba(255, 255, 255, 0.14)";
+    context.stroke();
+
+    const pitchWidth = size * 0.11;
+    const pitchHeight = size * 0.27;
+    const pitchLeft = center - pitchWidth / 2;
+    const pitchTop = fieldTop + center - pitchHeight / 2;
     context.fillStyle = "#c8a06a";
     context.strokeStyle = "#a47e4f";
     context.lineWidth = 4;
     context.beginPath();
-    context.roundRect(center - pitchWidth / 2, fieldTop + center - pitchHeight / 2, pitchWidth, pitchHeight, 16);
+    context.roundRect(pitchLeft, pitchTop, pitchWidth, pitchHeight, 16);
     context.fill();
     context.stroke();
+
+    context.strokeStyle = "rgba(255, 255, 255, 0.85)";
+    context.lineWidth = 5;
+    [pitchTop + pitchHeight * 0.16, pitchTop + pitchHeight * 0.84].forEach((creaseY) => {
+      context.beginPath();
+      context.moveTo(pitchLeft - pitchWidth * 0.35, creaseY);
+      context.lineTo(pitchLeft + pitchWidth * 1.35, creaseY);
+      context.stroke();
+
+      context.beginPath();
+      context.moveTo(center - pitchWidth * 0.25, creaseY - pitchHeight * 0.08);
+      context.lineTo(center - pitchWidth * 0.25, creaseY + pitchHeight * 0.08);
+      context.moveTo(center + pitchWidth * 0.25, creaseY - pitchHeight * 0.08);
+      context.lineTo(center + pitchWidth * 0.25, creaseY + pitchHeight * 0.08);
+      context.stroke();
+    });
+
+    context.strokeStyle = "#fff7d6";
+    context.lineWidth = 4;
+    [pitchTop + pitchHeight * 0.1, pitchTop + pitchHeight * 0.9].forEach((stumpY) => {
+      [-0.12, 0, 0.12].forEach((offset) => {
+        context.beginPath();
+        context.moveTo(center + pitchWidth * offset, stumpY - pitchHeight * 0.035);
+        context.lineTo(center + pitchWidth * offset, stumpY + pitchHeight * 0.035);
+        context.stroke();
+      });
+    });
+
+    const drawBatter = (x: number, y: number, direction: 1 | -1) => {
+      context.fillStyle = "#f7f7f2";
+      context.strokeStyle = "#12355b";
+      context.lineWidth = 4;
+
+      context.beginPath();
+      context.arc(x, y - 18 * direction, 10, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+
+      context.beginPath();
+      context.moveTo(x, y - 8 * direction);
+      context.lineTo(x, y + 34 * direction);
+      context.lineTo(x - 14, y + 52 * direction);
+      context.moveTo(x, y + 34 * direction);
+      context.lineTo(x + 14, y + 52 * direction);
+      context.moveTo(x, y + 4 * direction);
+      context.lineTo(x - 18, y + 20 * direction);
+      context.moveTo(x, y + 4 * direction);
+      context.lineTo(x + 18, y + 20 * direction);
+      context.stroke();
+
+      context.strokeStyle = "#d8a13d";
+      context.lineWidth = 5;
+      context.beginPath();
+      context.moveTo(x + 24, y + 8 * direction);
+      context.lineTo(x + 42, y + 46 * direction);
+      context.stroke();
+    };
+
+    drawBatter(center + pitchWidth * 0.8, pitchTop + pitchHeight * 0.18, 1);
+    drawBatter(center - pitchWidth * 0.8, pitchTop + pitchHeight * 0.82, -1);
 
     players.forEach((player) => {
       const x = (player.x / 100) * size;
       const y = fieldTop + (player.y / 100) * size;
       const markerRadius = 48;
-      const label = player.fielderName || player.name;
+      const label = getFieldLabel(player);
 
       context.beginPath();
       context.arc(x, y, markerRadius, 0, Math.PI * 2);
@@ -523,7 +645,7 @@ export default function App() {
     const file = new File([blob], fileName, { type: "image/png" });
 
     if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: formationName || "Field Formation" });
+      await navigator.share({ files: [file], title: teamName || formationName || "Field Formation" });
       return;
     }
 
@@ -558,6 +680,16 @@ export default function App() {
     setPlayers((prev) => [...prev, createSelectedPosition(position, isLeftHander, isEndOverRotated)]);
   };
 
+  const togglePosition = (position: FieldPosition) => {
+    const selectedPlayer = players.find((player) => player.name === position.name);
+    if (selectedPlayer) {
+      removePosition(selectedPlayer.id);
+      return;
+    }
+
+    addPosition(position);
+  };
+
   const removePosition = (id: string) => {
     setPlayers((prev) => prev.filter((player) => player.id !== id));
   };
@@ -578,15 +710,18 @@ export default function App() {
     event.preventDefault();
     const sourceId = event.dataTransfer.getData("application/x-fielder-id");
     const droppedName = event.dataTransfer.getData("text/plain").trim();
-    if (!droppedName) return;
+    if (!droppedName || sourceId === targetId) return;
 
-    setPlayers((prev) =>
-      prev.map((player) => {
+    setPlayers((prev) => {
+      const targetPlayer = prev.find((player) => player.id === targetId);
+      const targetName = targetPlayer?.fielderName ?? "";
+
+      return prev.map((player) => {
         if (player.id === targetId) return { ...player, fielderName: droppedName };
-        if (sourceId && player.id === sourceId && sourceId !== targetId) return { ...player, fielderName: "" };
+        if (sourceId && player.id === sourceId) return { ...player, fielderName: targetName };
         return player;
-      }),
-    );
+      });
+    });
   };
 
   const changeBatterHand = (nextIsLeftHander: boolean) => {
@@ -621,6 +756,47 @@ export default function App() {
     setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, x, y } : p)));
   };
 
+  const snapPlayerToNearestPosition = (id: string) => {
+    setPlayers((prev) => {
+      const draggedPlayer = prev.find((player) => player.id === id);
+      if (!draggedPlayer) return prev;
+
+      const nearestPosition = getNearestFieldPosition(
+        draggedPlayer.x,
+        draggedPlayer.y,
+        isLeftHander,
+        isEndOverRotated,
+      );
+      const draggedOriginalPosition = getPositionByName(draggedPlayer.name, isLeftHander, isEndOverRotated);
+      const existingAtNearest = prev.find(
+        (player) => player.id !== id && player.name === nearestPosition.name,
+      );
+
+      return prev.map((player) => {
+        if (player.id === id) {
+          return {
+            ...player,
+            id: existingAtNearest ? player.id : createId(nearestPosition.name),
+            name: nearestPosition.name,
+            x: nearestPosition.x,
+            y: nearestPosition.y,
+          };
+        }
+
+        if (existingAtNearest && player.id === existingAtNearest.id) {
+          return {
+            ...player,
+            name: draggedPlayer.name,
+            x: draggedOriginalPosition.x,
+            y: draggedOriginalPosition.y,
+          };
+        }
+
+        return player;
+      });
+    });
+  };
+
   const selectedNames = useMemo(() => new Set(players.map((player) => player.name)), [players]);
   const title = useMemo(
     () =>
@@ -633,30 +809,48 @@ export default function App() {
   return (
     <main className="app">
       <header className="topbar">
-        <input
-          className="nameInput"
-          value={formationName}
-          onChange={(e) => setFormationName(e.target.value)}
-          aria-label="Formation name"
-        />
-        <select
-          className="savedSelect"
-          value={activeFormationId}
-          onChange={(e) => loadFormation(e.target.value)}
-          aria-label="Saved formations"
-        >
-          <option value="">Saved fields</option>
-          {savedFormations.map((formation) => (
-            <option key={formation.id} value={formation.id}>
-              {formation.name}
-            </option>
-          ))}
-        </select>
-        <button onClick={saveFormation}>{activeFormationId ? "Update" : "Save"}</button>
-        <button onClick={saveFormationAsNew}>Save New</button>
-        <button onClick={deleteFormation} disabled={!activeFormationId}>
-          Delete
-        </button>
+        <div className="identityFields">
+          <label>
+            <span>Team</span>
+            <input
+              className="nameInput"
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              placeholder="Team name"
+              aria-label="Team name"
+            />
+          </label>
+          <label>
+            <span>Formation</span>
+            <input
+              className="nameInput"
+              value={formationName}
+              onChange={(e) => setFormationName(e.target.value)}
+              placeholder="Formation name"
+              aria-label="Formation name"
+            />
+          </label>
+        </div>
+        <div className="saveControls">
+          <select
+            className="savedSelect"
+            value={activeFormationId}
+            onChange={(e) => loadFormation(e.target.value)}
+            aria-label="Saved formations"
+          >
+            <option value="">Saved fields</option>
+            {savedFormations.map((formation) => (
+              <option key={formation.id} value={formation.id}>
+                {formation.teamName ? `${formation.teamName} - ${formation.name}` : formation.name}
+              </option>
+            ))}
+          </select>
+          <button onClick={saveFormation}>{activeFormationId ? "Update" : "Save"}</button>
+          <button onClick={saveFormationAsNew}>Save New</button>
+          <button onClick={deleteFormation} disabled={!activeFormationId}>
+            Delete
+          </button>
+        </div>
       </header>
 
       <section className="controls" aria-label="Batter settings">
@@ -693,8 +887,17 @@ export default function App() {
 
       <section className="fieldWrap">
         <div className="field" ref={fieldRef}>
+          <div className="boundaryRope" />
+          <div className="outerRing" />
           <div className="innerCircle" />
-          <div className="pitch" />
+          <div className="pitch">
+            <span className="stumps stumpsTop" />
+            <span className="stumps stumpsBottom" />
+            <span className="crease creaseTop" />
+            <span className="crease creaseBottom" />
+            <span className="batterIcon batterTop" />
+            <span className="batterIcon batterBottom" />
+          </div>
           {players.map((p) => (
             <button
               key={p.id}
@@ -705,11 +908,17 @@ export default function App() {
                 setDraggingId(p.id);
               }}
               onPointerMove={(e) => handlePointerMove(e, p.id)}
-              onPointerUp={() => setDraggingId(null)}
-              onPointerCancel={() => setDraggingId(null)}
+              onPointerUp={() => {
+                snapPlayerToNearestPosition(p.id);
+                setDraggingId(null);
+              }}
+              onPointerCancel={() => {
+                snapPlayerToNearestPosition(p.id);
+                setDraggingId(null);
+              }}
               title={p.fielderName ? `${p.fielderName} - ${p.name}` : p.name}
             >
-              <span>{p.fielderName || p.name}</span>
+              <span>{getFieldLabel(p)}</span>
             </button>
           ))}
         </div>
@@ -722,7 +931,7 @@ export default function App() {
             {players.length}/{MAX_POSITIONS}
           </span>
         </div>
-        <p className="selectorHint">Choose a preset, enter fielder names, then drag a name chip to move that player to another position.</p>
+        <p className="selectorHint">Choose a preset, enter fielder names, then drag a name chip to move or swap players between positions.</p>
 
         <div className="selectedList">
           {players.map((player) => (
@@ -779,7 +988,7 @@ export default function App() {
         ))}
 
         <details className="customPositions">
-          <summary>Add custom position</summary>
+          <summary>Add or remove custom position</summary>
           <div className="positionGrid">
             {FIELD_POSITIONS.map((position) => {
               const isSelected = selectedNames.has(position.name);
@@ -787,8 +996,8 @@ export default function App() {
                 <button
                   key={position.name}
                   className={`positionOption ${isSelected ? "selected" : ""}`}
-                  onClick={() => addPosition(position)}
-                  disabled={isSelected || players.length >= MAX_POSITIONS}
+                  onClick={() => togglePosition(position)}
+                  disabled={!isSelected && players.length >= MAX_POSITIONS}
                 >
                   {position.name}
                 </button>
