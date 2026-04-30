@@ -27,6 +27,28 @@ type SavedFormation = {
   isEndOverRotated: boolean;
 };
 
+type BowlerScenario = {
+  id: string;
+  name: string;
+  action: string;
+  notes: string;
+  players: SelectedPosition[];
+  isLeftHander: boolean;
+  isEndOverRotated: boolean;
+};
+
+type BowlerPlan = {
+  id: string;
+  bowlerName: string;
+  scenarios: BowlerScenario[];
+};
+
+type FieldSuggestion = {
+  position: FieldPosition;
+  x: number;
+  y: number;
+};
+
 const FIELD_POSITIONS: FieldPosition[] = [
   { name: "Bowler", x: 50, y: 31 },
   { name: "Wicket Keeper", x: 50, y: 66 },
@@ -217,7 +239,9 @@ const FIELD_LABELS: Record<string, string> = {
 
 const STORAGE_KEY = "cricket-field-formation-v2";
 const SAVED_FORMATIONS_KEY = "cricket-field-saved-formations-v1";
+const BOWLER_PLANS_KEY = "cricket-field-bowler-plans-v1";
 const MAX_POSITIONS = 11;
+const REQUIRED_POSITIONS = ["Bowler", "Wicket Keeper"];
 
 const createId = (name: string) =>
   name
@@ -278,6 +302,21 @@ const createSuggestedPlayers = (isLeftHander: boolean, isEndOverRotated: boolean
     ...getPositionByName(name, isLeftHander, isEndOverRotated),
   }));
 
+const ensureRequiredPositions = (
+  selectedPlayers: SelectedPosition[],
+  isLeftHander: boolean,
+  isEndOverRotated: boolean,
+): SelectedPosition[] => {
+  const selectedNames = new Set(selectedPlayers.map((player) => player.name));
+  const requiredPlayers = REQUIRED_POSITIONS.filter((name) => !selectedNames.has(name)).map((name) => ({
+    id: createId(name),
+    fielderName: "",
+    ...getPositionByName(name, isLeftHander, isEndOverRotated),
+  }));
+
+  return [...requiredPlayers, ...selectedPlayers].slice(0, MAX_POSITIONS);
+};
+
 const drawWrappedText = (
   context: CanvasRenderingContext2D,
   text: string,
@@ -316,25 +355,79 @@ const normalizeSavedFormation = (data: unknown): SavedFormation | null => {
   const formation = data as Partial<SavedFormation>;
   if (!Array.isArray(formation.players) || typeof formation.name !== "string") return null;
 
+  const isLeftHander = typeof formation.isLeftHander === "boolean" ? formation.isLeftHander : false;
+  const isEndOverRotated =
+    typeof formation.isEndOverRotated === "boolean" ? formation.isEndOverRotated : false;
+
   return {
     id: typeof formation.id === "string" ? formation.id : `${Date.now()}-${createId(formation.name)}`,
     name: formation.name,
     teamName: typeof formation.teamName === "string" ? formation.teamName : "",
-    players: formation.players.map((player) => ({ ...player, fielderName: player.fielderName ?? "" })),
-    isLeftHander: typeof formation.isLeftHander === "boolean" ? formation.isLeftHander : false,
-    isEndOverRotated: typeof formation.isEndOverRotated === "boolean" ? formation.isEndOverRotated : false,
+    players: ensureRequiredPositions(
+      formation.players.map((player) => ({ ...player, fielderName: player.fielderName ?? "" })),
+      isLeftHander,
+      isEndOverRotated,
+    ),
+    isLeftHander,
+    isEndOverRotated,
+  };
+};
+
+const normalizeBowlerScenario = (data: unknown): BowlerScenario | null => {
+  if (!data || typeof data !== "object") return null;
+  const scenario = data as Partial<BowlerScenario>;
+  if (!Array.isArray(scenario.players) || typeof scenario.name !== "string") return null;
+
+  const isLeftHander = typeof scenario.isLeftHander === "boolean" ? scenario.isLeftHander : false;
+  const isEndOverRotated =
+    typeof scenario.isEndOverRotated === "boolean" ? scenario.isEndOverRotated : false;
+
+  return {
+    id: typeof scenario.id === "string" ? scenario.id : `${Date.now()}-${createId(scenario.name)}`,
+    name: scenario.name,
+    action: typeof scenario.action === "string" ? scenario.action : "",
+    notes: typeof scenario.notes === "string" ? scenario.notes : "",
+    players: ensureRequiredPositions(
+      scenario.players.map((player) => ({ ...player, fielderName: player.fielderName ?? "" })),
+      isLeftHander,
+      isEndOverRotated,
+    ),
+    isLeftHander,
+    isEndOverRotated,
+  };
+};
+
+const normalizeBowlerPlan = (data: unknown): BowlerPlan | null => {
+  if (!data || typeof data !== "object") return null;
+  const plan = data as Partial<BowlerPlan>;
+  if (typeof plan.bowlerName !== "string" || !Array.isArray(plan.scenarios)) return null;
+
+  return {
+    id: typeof plan.id === "string" ? plan.id : `${Date.now()}-${createId(plan.bowlerName)}`,
+    bowlerName: plan.bowlerName,
+    scenarios: plan.scenarios
+      .map((scenario) => normalizeBowlerScenario(scenario))
+      .filter((scenario): scenario is BowlerScenario => Boolean(scenario)),
   };
 };
 
 export default function App() {
-  const [players, setPlayers] = useState<SelectedPosition[]>([]);
+  const [players, setPlayers] = useState<SelectedPosition[]>(() => ensureRequiredPositions([], false, false));
   const [savedFormations, setSavedFormations] = useState<SavedFormation[]>([]);
+  const [bowlerPlans, setBowlerPlans] = useState<BowlerPlan[]>([]);
   const [activeFormationId, setActiveFormationId] = useState("");
   const [formationName, setFormationName] = useState("My Formation");
   const [teamName, setTeamName] = useState("");
+  const [activeBowlerId, setActiveBowlerId] = useState("");
+  const [bowlerNameDraft, setBowlerNameDraft] = useState("");
+  const [activeScenarioId, setActiveScenarioId] = useState("");
+  const [scenarioName, setScenarioName] = useState("");
+  const [scenarioAction, setScenarioAction] = useState("");
+  const [scenarioNotes, setScenarioNotes] = useState("");
   const [isLeftHander, setIsLeftHander] = useState(false);
   const [isEndOverRotated, setIsEndOverRotated] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [fieldSuggestion, setFieldSuggestion] = useState<FieldSuggestion | null>(null);
   const fieldRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -350,6 +443,21 @@ export default function App() {
         }
       } catch {
         localStorage.removeItem(SAVED_FORMATIONS_KEY);
+      }
+    }
+
+    const bowlerPlansRaw = localStorage.getItem(BOWLER_PLANS_KEY);
+    if (bowlerPlansRaw) {
+      try {
+        const savedPlans = JSON.parse(bowlerPlansRaw);
+        if (Array.isArray(savedPlans)) {
+          const plans = savedPlans
+            .map((item) => normalizeBowlerPlan(item))
+            .filter((item): item is BowlerPlan => Boolean(item));
+          setBowlerPlans(plans);
+        }
+      } catch {
+        localStorage.removeItem(BOWLER_PLANS_KEY);
       }
     }
 
@@ -411,6 +519,21 @@ export default function App() {
       })
       .filter(Boolean);
   }, [players]);
+
+  const activeBowlerPlan = useMemo(
+    () => bowlerPlans.find((plan) => plan.id === activeBowlerId),
+    [activeBowlerId, bowlerPlans],
+  );
+
+  const activeScenario = useMemo(
+    () => activeBowlerPlan?.scenarios.find((scenario) => scenario.id === activeScenarioId),
+    [activeBowlerPlan, activeScenarioId],
+  );
+
+  const persistBowlerPlans = (next: BowlerPlan[]) => {
+    localStorage.setItem(BOWLER_PLANS_KEY, JSON.stringify(next));
+    setBowlerPlans(next);
+  };
 
   const saveFormation = () => {
     if (duplicateMessage) {
@@ -484,6 +607,149 @@ export default function App() {
     });
     setActiveFormationId("");
     alert("Formation deleted locally");
+  };
+
+  const selectBowlerPlan = (id: string) => {
+    const plan = bowlerPlans.find((item) => item.id === id);
+    setActiveBowlerId(id);
+    setBowlerNameDraft(plan?.bowlerName ?? "");
+    setActiveScenarioId("");
+    setScenarioName("");
+    setScenarioAction("");
+    setScenarioNotes("");
+  };
+
+  const saveBowlerPlan = () => {
+    const nextBowlerName = bowlerNameDraft.trim();
+    if (!nextBowlerName) {
+      alert("Enter a bowler name first");
+      return;
+    }
+
+    if (activeBowlerId) {
+      const next = bowlerPlans.map((plan) =>
+        plan.id === activeBowlerId ? { ...plan, bowlerName: nextBowlerName } : plan,
+      );
+      persistBowlerPlans(next);
+      alert("Bowler updated locally");
+      return;
+    }
+
+    const newPlan: BowlerPlan = {
+      id: `${Date.now()}-${createId(nextBowlerName || "bowler")}`,
+      bowlerName: nextBowlerName,
+      scenarios: [],
+    };
+    persistBowlerPlans([...bowlerPlans, newPlan]);
+    setActiveBowlerId(newPlan.id);
+    alert("Bowler saved locally");
+  };
+
+  const deleteBowlerPlan = () => {
+    if (!activeBowlerId) return;
+    const next = bowlerPlans.filter((plan) => plan.id !== activeBowlerId);
+    persistBowlerPlans(next);
+    setActiveBowlerId("");
+    setBowlerNameDraft("");
+    setActiveScenarioId("");
+    setScenarioName("");
+    setScenarioAction("");
+    setScenarioNotes("");
+    alert("Bowler plan deleted locally");
+  };
+
+  const selectScenario = (id: string) => {
+    const scenario = activeBowlerPlan?.scenarios.find((item) => item.id === id);
+    setActiveScenarioId(id);
+    setScenarioName(scenario?.name ?? "");
+    setScenarioAction(scenario?.action ?? "");
+    setScenarioNotes(scenario?.notes ?? "");
+  };
+
+  const saveBowlerScenario = () => {
+    if (duplicateMessage) {
+      alert(duplicateMessage);
+      return;
+    }
+
+    const nextBowlerName = bowlerNameDraft.trim();
+    const nextScenarioName = scenarioName.trim();
+
+    if (!nextBowlerName) {
+      alert("Enter a bowler name first");
+      return;
+    }
+
+    if (!nextScenarioName) {
+      alert("Enter a scenario name first");
+      return;
+    }
+
+    const scenario: BowlerScenario = {
+      id: activeScenarioId || `${Date.now()}-${createId(nextScenarioName || "scenario")}`,
+      name: nextScenarioName,
+      action: scenarioAction.trim(),
+      notes: scenarioNotes.trim(),
+      players,
+      isLeftHander,
+      isEndOverRotated,
+    };
+
+    let nextActiveBowlerId = activeBowlerId;
+    const existingPlan = bowlerPlans.find((plan) => plan.id === activeBowlerId);
+    let nextPlans: BowlerPlan[];
+
+    if (existingPlan) {
+      nextPlans = bowlerPlans.map((plan) => {
+        if (plan.id !== existingPlan.id) return plan;
+        const hasScenario = plan.scenarios.some((item) => item.id === scenario.id);
+        return {
+          ...plan,
+          bowlerName: nextBowlerName,
+          scenarios: hasScenario
+            ? plan.scenarios.map((item) => (item.id === scenario.id ? scenario : item))
+            : [...plan.scenarios, scenario],
+        };
+      });
+    } else {
+      const newPlan: BowlerPlan = {
+        id: `${Date.now()}-${createId(nextBowlerName || "bowler")}`,
+        bowlerName: nextBowlerName,
+        scenarios: [scenario],
+      };
+      nextActiveBowlerId = newPlan.id;
+      nextPlans = [...bowlerPlans, newPlan];
+    }
+
+    persistBowlerPlans(nextPlans);
+    setActiveBowlerId(nextActiveBowlerId);
+    setActiveScenarioId(scenario.id);
+    alert(activeScenarioId ? "Scenario updated locally" : "Scenario saved locally");
+  };
+
+  const loadBowlerScenario = () => {
+    if (!activeScenario) return;
+    setPlayers(ensureRequiredPositions(activeScenario.players, activeScenario.isLeftHander, activeScenario.isEndOverRotated));
+    setIsLeftHander(activeScenario.isLeftHander);
+    setIsEndOverRotated(activeScenario.isEndOverRotated);
+    setFormationName(activeScenario.name);
+    setActiveFormationId("");
+  };
+
+  const deleteBowlerScenario = () => {
+    if (!activeBowlerPlan || !activeScenarioId) return;
+
+    const next = bowlerPlans.map((plan) =>
+      plan.id === activeBowlerPlan.id
+        ? { ...plan, scenarios: plan.scenarios.filter((scenario) => scenario.id !== activeScenarioId) }
+        : plan,
+    );
+    persistBowlerPlans(next);
+    setActiveScenarioId("");
+    setScenarioName("");
+    setScenarioAction("");
+    setScenarioNotes("");
+    alert("Scenario deleted locally");
   };
 
   const exportFormationImage = async () => {
@@ -667,11 +933,15 @@ export default function App() {
 
     const currentNames = new Map(players.map((player) => [player.name, player.fielderName]));
     setPlayers(
-      preset.positions.map((name) => ({
+      ensureRequiredPositions(
+        preset.positions.map((name) => ({
         id: createId(name),
         fielderName: currentNames.get(name) ?? "",
         ...getPositionByName(name, isLeftHander, isEndOverRotated),
-      })),
+        })),
+        isLeftHander,
+        isEndOverRotated,
+      ),
     );
   };
 
@@ -680,7 +950,35 @@ export default function App() {
     setPlayers((prev) => [...prev, createSelectedPosition(position, isLeftHander, isEndOverRotated)]);
   };
 
+  const addSuggestedPosition = () => {
+    if (!fieldSuggestion) return;
+    const { position } = fieldSuggestion;
+
+    if (players.some((player) => player.name === position.name)) {
+      alert(`${position.name} is already selected`);
+      setFieldSuggestion(null);
+      return;
+    }
+
+    if (players.length >= MAX_POSITIONS) {
+      alert("11 fielders are there, please remove one to add another");
+      setFieldSuggestion(null);
+      return;
+    }
+
+    setPlayers((prev) => [
+      ...prev,
+      {
+        id: createId(position.name),
+        fielderName: "",
+        ...position,
+      },
+    ]);
+    setFieldSuggestion(null);
+  };
+
   const togglePosition = (position: FieldPosition) => {
+    if (REQUIRED_POSITIONS.includes(position.name)) return;
     const selectedPlayer = players.find((player) => player.name === position.name);
     if (selectedPlayer) {
       removePosition(selectedPlayer.id);
@@ -691,7 +989,7 @@ export default function App() {
   };
 
   const removePosition = (id: string) => {
-    setPlayers((prev) => prev.filter((player) => player.id !== id));
+    setPlayers((prev) => prev.filter((player) => player.id !== id || REQUIRED_POSITIONS.includes(player.name)));
   };
 
   const renameFielder = (id: string, fielderName: string) => {
@@ -725,6 +1023,7 @@ export default function App() {
   };
 
   const changeBatterHand = (nextIsLeftHander: boolean) => {
+    setFieldSuggestion(null);
     setIsLeftHander(nextIsLeftHander);
     setPlayers((prev) =>
       prev.map((player) => ({
@@ -735,6 +1034,7 @@ export default function App() {
   };
 
   const changeEndOverRotation = (nextIsEndOverRotated: boolean) => {
+    setFieldSuggestion(null);
     setIsEndOverRotated(nextIsEndOverRotated);
     setPlayers((prev) =>
       prev.map((player) => ({
@@ -754,6 +1054,29 @@ export default function App() {
     y = Math.max(4, Math.min(96, y));
 
     setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, x, y } : p)));
+  };
+
+  const suggestFieldPosition = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!fieldRef.current || draggingId) return;
+    const target = event.target as HTMLElement;
+    if (target.closest(".player") || target.closest(".assignmentConfirm")) return;
+
+    if (players.length >= MAX_POSITIONS) {
+      alert("11 fielders are there, please remove one to add another");
+      setFieldSuggestion(null);
+      return;
+    }
+
+    const rect = fieldRef.current.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    const position = getNearestFieldPosition(x, y, isLeftHander, isEndOverRotated);
+
+    setFieldSuggestion({
+      position,
+      x: Math.max(14, Math.min(86, x)),
+      y: Math.max(12, Math.min(88, y)),
+    });
   };
 
   const snapPlayerToNearestPosition = (id: string) => {
@@ -885,8 +1208,93 @@ export default function App() {
         </label>
       </section>
 
+      <details className="bowlerPlans">
+        <summary>Bowler plans</summary>
+        <div className="bowlerPlanGrid">
+          <label className="bowlerPlanField">
+            <span>Select bowler</span>
+            <select value={activeBowlerId} onChange={(e) => selectBowlerPlan(e.target.value)}>
+              <option value="">New bowler</option>
+              {bowlerPlans.map((plan) => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.bowlerName}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="bowlerPlanField">
+            <span>Bowler name</span>
+            <input
+              value={bowlerNameDraft}
+              onChange={(e) => setBowlerNameDraft(e.target.value)}
+              placeholder="Bowler name"
+            />
+          </label>
+
+          <label className="bowlerPlanField">
+            <span>Select scenario</span>
+            <select
+              value={activeScenarioId}
+              onChange={(e) => selectScenario(e.target.value)}
+              disabled={!activeBowlerPlan}
+            >
+              <option value="">New scenario</option>
+              {activeBowlerPlan?.scenarios.map((scenario) => (
+                <option key={scenario.id} value={scenario.id}>
+                  {scenario.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="bowlerPlanField">
+            <span>Scenario</span>
+            <input
+              value={scenarioName}
+              onChange={(e) => setScenarioName(e.target.value)}
+              placeholder="Powerplay vs RH batter"
+            />
+          </label>
+
+          <label className="bowlerPlanField wide">
+            <span>Action / plan</span>
+            <textarea
+              value={scenarioAction}
+              onChange={(e) => setScenarioAction(e.target.value)}
+              placeholder="Hard length outside off"
+              rows={2}
+            />
+          </label>
+
+          <label className="bowlerPlanField wide">
+            <span>Notes</span>
+            <textarea
+              value={scenarioNotes}
+              onChange={(e) => setScenarioNotes(e.target.value)}
+              placeholder="Keep point tight, protect cover boundary"
+              rows={2}
+            />
+          </label>
+        </div>
+
+        <div className="bowlerPlanActions">
+          <button onClick={saveBowlerPlan}>Save Bowler</button>
+          <button onClick={saveBowlerScenario}>Save Scenario</button>
+          <button onClick={loadBowlerScenario} disabled={!activeScenario}>
+            Load Field
+          </button>
+          <button onClick={deleteBowlerScenario} disabled={!activeScenarioId}>
+            Delete Scenario
+          </button>
+          <button onClick={deleteBowlerPlan} disabled={!activeBowlerId}>
+            Delete Bowler
+          </button>
+        </div>
+      </details>
+
       <section className="fieldWrap">
-        <div className="field" ref={fieldRef}>
+        <div className="field" ref={fieldRef} onClick={suggestFieldPosition}>
           <div className="boundaryRope" />
           <div className="outerRing" />
           <div className="innerCircle" />
@@ -921,6 +1329,32 @@ export default function App() {
               <span>{getFieldLabel(p)}</span>
             </button>
           ))}
+          {fieldSuggestion && (
+            <div
+              className="assignmentConfirm"
+              style={{ left: `${fieldSuggestion.x}%`, top: `${fieldSuggestion.y}%` }}
+              role="dialog"
+              aria-live="polite"
+            >
+              <p>
+                {players.some((player) => player.name === fieldSuggestion.position.name)
+                  ? `${fieldSuggestion.position.name} is already selected.`
+                  : `Add ${fieldSuggestion.position.name} here?`}
+              </p>
+              <div>
+                <button
+                  type="button"
+                  onClick={addSuggestedPosition}
+                  disabled={players.some((player) => player.name === fieldSuggestion.position.name)}
+                >
+                  Add
+                </button>
+                <button type="button" onClick={() => setFieldSuggestion(null)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -931,7 +1365,9 @@ export default function App() {
             {players.length}/{MAX_POSITIONS}
           </span>
         </div>
-        <p className="selectorHint">Choose a preset, enter fielder names, then drag a name chip to move or swap players between positions.</p>
+        <p className="selectorHint">
+          Choose a preset, tap the field to add a suggested position, then enter or drag name chips between positions.
+        </p>
 
         <div className="selectedList">
           {players.map((player) => (
@@ -968,9 +1404,13 @@ export default function App() {
                   )}
                 </div>
               </label>
-              <button className="removePosition" onClick={() => removePosition(player.id)} aria-label={`Remove ${player.name}`}>
-                x
-              </button>
+              {REQUIRED_POSITIONS.includes(player.name) ? (
+                <span className="requiredPosition">Fixed</span>
+              ) : (
+                <button className="removePosition" onClick={() => removePosition(player.id)} aria-label={`Remove ${player.name}`}>
+                  x
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -997,7 +1437,7 @@ export default function App() {
                   key={position.name}
                   className={`positionOption ${isSelected ? "selected" : ""}`}
                   onClick={() => togglePosition(position)}
-                  disabled={!isSelected && players.length >= MAX_POSITIONS}
+                  disabled={REQUIRED_POSITIONS.includes(position.name) || (!isSelected && players.length >= MAX_POSITIONS)}
                 >
                   {position.name}
                 </button>
@@ -1010,7 +1450,7 @@ export default function App() {
       <footer className="actions">
         <button onClick={resetFormation}>Suggested XI</button>
         <button onClick={exportFormationImage}>Share PNG</button>
-        <button onClick={() => setPlayers([])}>Clear</button>
+        <button onClick={() => setPlayers(ensureRequiredPositions([], isLeftHander, isEndOverRotated))}>Clear</button>
       </footer>
 
       <p className="hint">{title}</p>

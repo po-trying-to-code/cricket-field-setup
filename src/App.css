@@ -14,7 +14,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -166,6 +167,35 @@ select {
     min-width: 0;
     font-size: 16px;
   }
+
+  .bowlerPlans {
+    padding: 7px;
+  }
+
+  .bowlerPlanGrid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .bowlerPlanField span {
+    font-size: 11px;
+  }
+
+  .bowlerPlanField input,
+  .bowlerPlanField select,
+  .bowlerPlanField textarea {
+    padding: 7px 8px;
+    font-size: 16px;
+  }
+
+  .bowlerPlanActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bowlerPlanActions button {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
 }
 
 .controls {
@@ -216,6 +246,90 @@ select {
   padding: 5px 8px;
   font-size: 14px;
   font-weight: 700;
+}
+
+.bowlerPlans {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.bowlerPlans summary {
+  color: #243b53;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.bowlerPlans[open] summary {
+  margin-bottom: 8px;
+}
+
+.bowlerPlanGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bowlerPlanField {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  text-align: left;
+}
+
+.bowlerPlanField.wide {
+  grid-column: 1 / -1;
+}
+
+.bowlerPlanField span {
+  color: #486581;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.bowlerPlanField input,
+.bowlerPlanField select,
+.bowlerPlanField textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #102a43;
+  padding: 8px 10px;
+  font-size: 16px;
+}
+
+.bowlerPlanField textarea {
+  min-height: 58px;
+  resize: vertical;
+}
+
+.bowlerPlanActions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.bowlerPlanActions button {
+  min-width: 0;
+  border: 0;
+  border-radius: 8px;
+  background: #0f62fe;
+  color: #ffffff;
+  padding: 8px 6px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.bowlerPlanActions button:disabled {
+  background: #bcccdc;
+  color: #f4f7fb;
 }
 
 .fieldWrap {
@@ -474,6 +588,11 @@ select {
   background: #829ab1;
 }
 
+.assignmentConfirm button:disabled {
+  background: #bcccdc;
+  color: #f4f7fb;
+}
+
 .selector {
   display: grid;
   gap: 8px;
@@ -626,6 +745,18 @@ select {
   font-size: 14px;
   font-weight: 800;
   line-height: 1;
+}
+
+.requiredPosition {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 32px;
+  border-radius: 6px;
+  background: #d9e2ec;
+  color: #486581;
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .customPositions {
