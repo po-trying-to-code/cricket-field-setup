@@ -426,11 +426,19 @@ export default function App() {
   const [scenarioName, setScenarioName] = useState("");
   const [scenarioAction, setScenarioAction] = useState("");
   const [scenarioNotes, setScenarioNotes] = useState("");
+  const [bowlerPlanPlayers, setBowlerPlanPlayers] = useState<SelectedPosition[]>(() =>
+    ensureRequiredPositions([], false, false),
+  );
+  const [bowlerPlanIsLeftHander, setBowlerPlanIsLeftHander] = useState(false);
+  const [bowlerPlanIsEndOverRotated, setBowlerPlanIsEndOverRotated] = useState(false);
+  const [bowlerPlanDraggingId, setBowlerPlanDraggingId] = useState<string | null>(null);
+  const [bowlerPlanSuggestion, setBowlerPlanSuggestion] = useState<FieldSuggestion | null>(null);
   const [isLeftHander, setIsLeftHander] = useState(false);
   const [isEndOverRotated, setIsEndOverRotated] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [fieldSuggestion, setFieldSuggestion] = useState<FieldSuggestion | null>(null);
   const fieldRef = useRef<HTMLDivElement | null>(null);
+  const bowlerPlanFieldRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const savedRaw = localStorage.getItem(SAVED_FORMATIONS_KEY);
@@ -521,6 +529,48 @@ export default function App() {
       })
       .filter(Boolean);
   }, [players]);
+
+  const bowlerPlanDuplicateFielderNames = useMemo(() => {
+    const nameCounts = new Map<string, { displayName: string; count: number }>();
+
+    bowlerPlanPlayers.forEach((player) => {
+      const normalizedName = normalizeFielderName(player.fielderName);
+      if (!normalizedName) return;
+
+      const current = nameCounts.get(normalizedName);
+      nameCounts.set(normalizedName, {
+        displayName: current?.displayName ?? player.fielderName.trim(),
+        count: (current?.count ?? 0) + 1,
+      });
+    });
+
+    return Array.from(nameCounts.entries())
+      .filter(([, value]) => value.count > 1)
+      .map(([normalizedName, value]) => ({ normalizedName, displayName: value.displayName }));
+  }, [bowlerPlanPlayers]);
+
+  const bowlerPlanDuplicateNameSet = useMemo(
+    () => new Set(bowlerPlanDuplicateFielderNames.map((item) => item.normalizedName)),
+    [bowlerPlanDuplicateFielderNames],
+  );
+
+  const bowlerPlanDuplicateMessage = useMemo(() => {
+    if (bowlerPlanDuplicateFielderNames.length === 0) return "";
+    const names = bowlerPlanDuplicateFielderNames.map((item) => item.displayName).join(", ");
+    return `Same player is used in two positions: ${names}`;
+  }, [bowlerPlanDuplicateFielderNames]);
+
+  const bowlerPlanDepthConflictMessages = useMemo(() => {
+    const selectedPositionNames = new Set(bowlerPlanPlayers.map((player) => player.name));
+
+    return Object.entries(FIELD_DEPTH_GROUPS)
+      .map(([area, positions]) => {
+        const selectedInArea = positions.filter((position) => selectedPositionNames.has(position));
+        if (selectedInArea.length < 2) return "";
+        return `Check ${area}: ${selectedInArea.join(" and ")} are both selected.`;
+      })
+      .filter(Boolean);
+  }, [bowlerPlanPlayers]);
 
   const activeBowlerPlan = useMemo(
     () => bowlerPlans.find((plan) => plan.id === activeBowlerId),
@@ -669,8 +719,8 @@ export default function App() {
   };
 
   const saveBowlerScenario = () => {
-    if (duplicateMessage) {
-      alert(duplicateMessage);
+    if (bowlerPlanDuplicateMessage) {
+      alert(bowlerPlanDuplicateMessage);
       return;
     }
 
@@ -692,9 +742,9 @@ export default function App() {
       name: nextScenarioName,
       action: scenarioAction.trim(),
       notes: scenarioNotes.trim(),
-      players,
-      isLeftHander,
-      isEndOverRotated,
+      players: bowlerPlanPlayers,
+      isLeftHander: bowlerPlanIsLeftHander,
+      isEndOverRotated: bowlerPlanIsEndOverRotated,
     };
 
     let nextActiveBowlerId = activeBowlerId;
@@ -731,11 +781,12 @@ export default function App() {
 
   const loadBowlerScenario = () => {
     if (!activeScenario) return;
-    setPlayers(ensureRequiredPositions(activeScenario.players, activeScenario.isLeftHander, activeScenario.isEndOverRotated));
-    setIsLeftHander(activeScenario.isLeftHander);
-    setIsEndOverRotated(activeScenario.isEndOverRotated);
-    setFormationName(activeScenario.name);
-    setActiveFormationId("");
+    setBowlerPlanPlayers(
+      ensureRequiredPositions(activeScenario.players, activeScenario.isLeftHander, activeScenario.isEndOverRotated),
+    );
+    setBowlerPlanIsLeftHander(activeScenario.isLeftHander);
+    setBowlerPlanIsEndOverRotated(activeScenario.isEndOverRotated);
+    setBowlerPlanSuggestion(null);
   };
 
   const deleteBowlerScenario = () => {
@@ -1151,7 +1202,271 @@ export default function App() {
     });
   };
 
+  const resetBowlerPlanFormation = () => {
+    setBowlerPlanPlayers(createSuggestedPlayers(bowlerPlanIsLeftHander, bowlerPlanIsEndOverRotated));
+    setBowlerPlanSuggestion(null);
+  };
+
+  const copyTeamFieldToBowlerPlan = () => {
+    setBowlerPlanPlayers(players);
+    setBowlerPlanIsLeftHander(isLeftHander);
+    setBowlerPlanIsEndOverRotated(isEndOverRotated);
+    setBowlerPlanSuggestion(null);
+  };
+
+  const applyBowlerPlanPreset = (presetId: string) => {
+    if (presetId === "team-field") {
+      copyTeamFieldToBowlerPlan();
+      return;
+    }
+
+    const preset = FIELD_PRESETS.find((item) => item.id === presetId);
+    if (!preset) return;
+
+    const currentNames = new Map(bowlerPlanPlayers.map((player) => [player.name, player.fielderName]));
+    setBowlerPlanPlayers(
+      ensureRequiredPositions(
+        preset.positions.map((name) => ({
+          id: createId(name),
+          fielderName: currentNames.get(name) ?? "",
+          ...getPositionByName(name, bowlerPlanIsLeftHander, bowlerPlanIsEndOverRotated),
+        })),
+        bowlerPlanIsLeftHander,
+        bowlerPlanIsEndOverRotated,
+      ),
+    );
+    setBowlerPlanSuggestion(null);
+  };
+
+  const addBowlerPlanPosition = (position: FieldPosition) => {
+    if (
+      bowlerPlanPlayers.length >= MAX_POSITIONS ||
+      bowlerPlanPlayers.some((player) => player.name === position.name)
+    ) {
+      return;
+    }
+    setBowlerPlanPlayers((prev) => [
+      ...prev,
+      createSelectedPosition(position, bowlerPlanIsLeftHander, bowlerPlanIsEndOverRotated),
+    ]);
+  };
+
+  const addBowlerPlanSuggestedPosition = () => {
+    if (!bowlerPlanSuggestion) return;
+    const { position } = bowlerPlanSuggestion;
+
+    if (bowlerPlanPlayers.some((player) => player.name === position.name)) {
+      alert(`${position.name} is already selected`);
+      setBowlerPlanSuggestion(null);
+      return;
+    }
+
+    if (bowlerPlanPlayers.length >= MAX_POSITIONS) {
+      alert("11 fielders are there, please remove one to add another");
+      setBowlerPlanSuggestion(null);
+      return;
+    }
+
+    setBowlerPlanPlayers((prev) => [
+      ...prev,
+      {
+        id: createId(position.name),
+        fielderName: "",
+        ...position,
+      },
+    ]);
+    setBowlerPlanSuggestion(null);
+  };
+
+  const toggleBowlerPlanPosition = (position: FieldPosition) => {
+    if (isRequiredPosition(position.name)) return;
+    const selectedPlayer = bowlerPlanPlayers.find((player) => player.name === position.name);
+    if (selectedPlayer) {
+      removeBowlerPlanPosition(selectedPlayer.id);
+      return;
+    }
+
+    addBowlerPlanPosition(position);
+  };
+
+  const removeBowlerPlanPosition = (id: string) => {
+    setBowlerPlanPlayers((prev) =>
+      prev.filter((player) => player.id !== id || isRequiredPosition(player.name)),
+    );
+  };
+
+  const renameBowlerPlanFielder = (id: string, fielderName: string) => {
+    setBowlerPlanPlayers((prev) =>
+      prev.map((player) => (player.id === id ? { ...player, fielderName } : player)),
+    );
+  };
+
+  const handleBowlerPlanFielderChipDragStart = (
+    event: React.DragEvent<HTMLButtonElement>,
+    id: string,
+    fielderName: string,
+  ) => {
+    const sourcePlayer = bowlerPlanPlayers.find((player) => player.id === id);
+    if (sourcePlayer && isRequiredPosition(sourcePlayer.name)) {
+      event.preventDefault();
+      return;
+    }
+
+    const trimmedName = fielderName.trim();
+    if (!trimmedName) return;
+    event.dataTransfer.setData("application/x-fielder-id", id);
+    event.dataTransfer.setData("text/plain", trimmedName);
+    event.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleBowlerPlanFielderDrop = (event: React.DragEvent<HTMLInputElement>, targetId: string) => {
+    event.preventDefault();
+    const sourceId = event.dataTransfer.getData("application/x-fielder-id");
+    const droppedName = event.dataTransfer.getData("text/plain").trim();
+    if (!droppedName || sourceId === targetId) return;
+
+    setBowlerPlanPlayers((prev) => {
+      const sourcePlayer = prev.find((player) => player.id === sourceId);
+      const targetPlayer = prev.find((player) => player.id === targetId);
+      if (
+        (sourcePlayer && isRequiredPosition(sourcePlayer.name)) ||
+        (targetPlayer && isRequiredPosition(targetPlayer.name))
+      ) {
+        return prev;
+      }
+
+      const targetName = targetPlayer?.fielderName ?? "";
+
+      return prev.map((player) => {
+        if (player.id === targetId) return { ...player, fielderName: droppedName };
+        if (sourceId && player.id === sourceId) return { ...player, fielderName: targetName };
+        return player;
+      });
+    });
+  };
+
+  const changeBowlerPlanBatterHand = (nextIsLeftHander: boolean) => {
+    setBowlerPlanSuggestion(null);
+    setBowlerPlanIsLeftHander(nextIsLeftHander);
+    setBowlerPlanPlayers((prev) =>
+      prev.map((player) => ({
+        ...player,
+        ...getPositionByName(player.name, nextIsLeftHander, bowlerPlanIsEndOverRotated),
+      })),
+    );
+  };
+
+  const changeBowlerPlanEndOverRotation = (nextIsEndOverRotated: boolean) => {
+    setBowlerPlanSuggestion(null);
+    setBowlerPlanIsEndOverRotated(nextIsEndOverRotated);
+    setBowlerPlanPlayers((prev) =>
+      prev.map((player) => ({
+        ...player,
+        ...getPositionByName(player.name, bowlerPlanIsLeftHander, nextIsEndOverRotated),
+      })),
+    );
+  };
+
+  const handleBowlerPlanPointerMove = (e: React.PointerEvent, id: string) => {
+    if (bowlerPlanDraggingId !== id || !bowlerPlanFieldRef.current) return;
+    const movingPlayer = bowlerPlanPlayers.find((player) => player.id === id);
+    if (movingPlayer && isRequiredPosition(movingPlayer.name)) return;
+
+    const rect = bowlerPlanFieldRef.current.getBoundingClientRect();
+    let x = ((e.clientX - rect.left) / rect.width) * 100;
+    let y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    x = Math.max(4, Math.min(96, x));
+    y = Math.max(4, Math.min(96, y));
+
+    setBowlerPlanPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, x, y } : p)));
+  };
+
+  const suggestBowlerPlanFieldPosition = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!bowlerPlanFieldRef.current || bowlerPlanDraggingId) return;
+    const target = event.target as HTMLElement;
+    if (target.closest(".player") || target.closest(".assignmentConfirm")) return;
+
+    if (bowlerPlanPlayers.length >= MAX_POSITIONS) {
+      alert("11 fielders are there, please remove one to add another");
+      setBowlerPlanSuggestion(null);
+      return;
+    }
+
+    const rect = bowlerPlanFieldRef.current.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    const position = getNearestFieldPosition(x, y, bowlerPlanIsLeftHander, bowlerPlanIsEndOverRotated);
+
+    setBowlerPlanSuggestion({
+      position,
+      x: Math.max(14, Math.min(86, x)),
+      y: Math.max(12, Math.min(88, y)),
+    });
+  };
+
+  const snapBowlerPlanPlayerToNearestPosition = (id: string) => {
+    setBowlerPlanPlayers((prev) => {
+      const draggedPlayer = prev.find((player) => player.id === id);
+      if (!draggedPlayer) return prev;
+      if (isRequiredPosition(draggedPlayer.name)) return prev;
+
+      const nearestPosition = getNearestFieldPosition(
+        draggedPlayer.x,
+        draggedPlayer.y,
+        bowlerPlanIsLeftHander,
+        bowlerPlanIsEndOverRotated,
+      );
+      const draggedOriginalPosition = getPositionByName(
+        draggedPlayer.name,
+        bowlerPlanIsLeftHander,
+        bowlerPlanIsEndOverRotated,
+      );
+      const existingAtNearest = prev.find(
+        (player) => player.id !== id && player.name === nearestPosition.name,
+      );
+      if (isRequiredPosition(nearestPosition.name) || (existingAtNearest && isRequiredPosition(existingAtNearest.name))) {
+        return prev.map((player) =>
+          player.id === id
+            ? {
+                ...player,
+                x: draggedOriginalPosition.x,
+                y: draggedOriginalPosition.y,
+              }
+            : player,
+        );
+      }
+
+      return prev.map((player) => {
+        if (player.id === id) {
+          return {
+            ...player,
+            id: existingAtNearest ? player.id : createId(nearestPosition.name),
+            name: nearestPosition.name,
+            x: nearestPosition.x,
+            y: nearestPosition.y,
+          };
+        }
+
+        if (existingAtNearest && player.id === existingAtNearest.id) {
+          return {
+            ...player,
+            name: draggedPlayer.name,
+            x: draggedOriginalPosition.x,
+            y: draggedOriginalPosition.y,
+          };
+        }
+
+        return player;
+      });
+    });
+  };
+
   const selectedNames = useMemo(() => new Set(players.map((player) => player.name)), [players]);
+  const bowlerPlanSelectedNames = useMemo(
+    () => new Set(bowlerPlanPlayers.map((player) => player.name)),
+    [bowlerPlanPlayers],
+  );
   const title = useMemo(
     () =>
       `${formationName} - ${isLeftHander ? "Left" : "Right"}-hand batter${
@@ -1238,91 +1553,6 @@ export default function App() {
           </select>
         </label>
       </section>
-
-      <details className="bowlerPlans">
-        <summary>Bowler plans</summary>
-        <div className="bowlerPlanGrid">
-          <label className="bowlerPlanField">
-            <span>Select bowler</span>
-            <select value={activeBowlerId} onChange={(e) => selectBowlerPlan(e.target.value)}>
-              <option value="">New bowler</option>
-              {bowlerPlans.map((plan) => (
-                <option key={plan.id} value={plan.id}>
-                  {plan.bowlerName}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="bowlerPlanField">
-            <span>Bowler name</span>
-            <input
-              value={bowlerNameDraft}
-              onChange={(e) => setBowlerNameDraft(e.target.value)}
-              placeholder="Bowler name"
-            />
-          </label>
-
-          <label className="bowlerPlanField">
-            <span>Select scenario</span>
-            <select
-              value={activeScenarioId}
-              onChange={(e) => selectScenario(e.target.value)}
-              disabled={!activeBowlerPlan}
-            >
-              <option value="">New scenario</option>
-              {activeBowlerPlan?.scenarios.map((scenario) => (
-                <option key={scenario.id} value={scenario.id}>
-                  {scenario.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="bowlerPlanField">
-            <span>Scenario</span>
-            <input
-              value={scenarioName}
-              onChange={(e) => setScenarioName(e.target.value)}
-              placeholder="Powerplay vs RH batter"
-            />
-          </label>
-
-          <label className="bowlerPlanField wide">
-            <span>Action / plan</span>
-            <textarea
-              value={scenarioAction}
-              onChange={(e) => setScenarioAction(e.target.value)}
-              placeholder="Hard length outside off"
-              rows={2}
-            />
-          </label>
-
-          <label className="bowlerPlanField wide">
-            <span>Notes</span>
-            <textarea
-              value={scenarioNotes}
-              onChange={(e) => setScenarioNotes(e.target.value)}
-              placeholder="Keep point tight, protect cover boundary"
-              rows={2}
-            />
-          </label>
-        </div>
-
-        <div className="bowlerPlanActions">
-          <button onClick={saveBowlerPlan}>Save Bowler</button>
-          <button onClick={saveBowlerScenario}>Save Scenario</button>
-          <button onClick={loadBowlerScenario} disabled={!activeScenario}>
-            Load Field
-          </button>
-          <button onClick={deleteBowlerScenario} disabled={!activeScenarioId}>
-            Delete Scenario
-          </button>
-          <button onClick={deleteBowlerPlan} disabled={!activeBowlerId}>
-            Delete Bowler
-          </button>
-        </div>
-      </details>
 
       <section className="fieldWrap">
         <div className="field" ref={fieldRef} onClick={suggestFieldPosition}>
@@ -1484,6 +1714,295 @@ export default function App() {
           </div>
         </details>
       </section>
+
+      <details className="bowlerPlans">
+        <summary>Bowler plans</summary>
+        <div className="bowlerPlanGrid">
+          <label className="bowlerPlanField">
+            <span>Select bowler</span>
+            <select value={activeBowlerId} onChange={(e) => selectBowlerPlan(e.target.value)}>
+              <option value="">New bowler</option>
+              {bowlerPlans.map((plan) => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.bowlerName}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="bowlerPlanField">
+            <span>Bowler name</span>
+            <input
+              value={bowlerNameDraft}
+              onChange={(e) => setBowlerNameDraft(e.target.value)}
+              placeholder="Bowler name"
+            />
+          </label>
+
+          <label className="bowlerPlanField">
+            <span>Select scenario</span>
+            <select
+              value={activeScenarioId}
+              onChange={(e) => selectScenario(e.target.value)}
+              disabled={!activeBowlerPlan}
+            >
+              <option value="">New scenario</option>
+              {activeBowlerPlan?.scenarios.map((scenario) => (
+                <option key={scenario.id} value={scenario.id}>
+                  {scenario.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="bowlerPlanField">
+            <span>Scenario</span>
+            <input
+              value={scenarioName}
+              onChange={(e) => setScenarioName(e.target.value)}
+              placeholder="Powerplay vs RH batter"
+            />
+          </label>
+
+          <label className="bowlerPlanField wide">
+            <span>Action / plan</span>
+            <textarea
+              value={scenarioAction}
+              onChange={(e) => setScenarioAction(e.target.value)}
+              placeholder="Hard length outside off"
+              rows={2}
+            />
+          </label>
+
+          <label className="bowlerPlanField wide">
+            <span>Notes</span>
+            <textarea
+              value={scenarioNotes}
+              onChange={(e) => setScenarioNotes(e.target.value)}
+              placeholder="Keep point tight, protect cover boundary"
+              rows={2}
+            />
+          </label>
+        </div>
+
+        <section className="controls bowlerPlanControls" aria-label="Bowler plan field settings">
+          <label className="batterToggle">
+            <input
+              type="checkbox"
+              checked={bowlerPlanIsLeftHander}
+              onChange={(e) => changeBowlerPlanBatterHand(e.target.checked)}
+            />
+            <span>Left-hand batter</span>
+          </label>
+          <label className="batterToggle">
+            <input
+              type="checkbox"
+              checked={bowlerPlanIsEndOverRotated}
+              onChange={(e) => changeBowlerPlanEndOverRotation(e.target.checked)}
+            />
+            <span>End of over</span>
+          </label>
+          <label className="presetControl">
+            <span>Preset</span>
+            <select defaultValue="" onChange={(e) => applyBowlerPlanPreset(e.target.value)}>
+              <option value="" disabled>
+                Choose field
+              </option>
+              <option value="team-field">Use Team Field</option>
+              {FIELD_PRESETS.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
+
+        <section className="fieldWrap bowlerPlanFieldWrap" aria-label="Bowler plan field">
+          <div className="field bowlerPlanBoard" ref={bowlerPlanFieldRef} onClick={suggestBowlerPlanFieldPosition}>
+            <div className="boundaryRope" />
+            <div className="outerRing" />
+            <div className="innerCircle" />
+            <div className="pitch">
+              <span className="stumps stumpsTop" />
+              <span className="stumps stumpsBottom" />
+              <span className="crease creaseTop" />
+              <span className="crease creaseBottom" />
+              <span className="batterIcon batterTop" />
+              <span className="batterIcon batterBottom" />
+            </div>
+            {bowlerPlanPlayers.map((p) => (
+              <button
+                key={p.id}
+                className={`player ${bowlerPlanDraggingId === p.id ? "dragging" : ""} ${
+                  isRequiredPosition(p.name) ? "fixedPlayer" : ""
+                }`}
+                style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                onPointerDown={(e) => {
+                  if (isRequiredPosition(p.name)) return;
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  setBowlerPlanDraggingId(p.id);
+                }}
+                onPointerMove={(e) => handleBowlerPlanPointerMove(e, p.id)}
+                onPointerUp={() => {
+                  snapBowlerPlanPlayerToNearestPosition(p.id);
+                  setBowlerPlanDraggingId(null);
+                }}
+                onPointerCancel={() => {
+                  snapBowlerPlanPlayerToNearestPosition(p.id);
+                  setBowlerPlanDraggingId(null);
+                }}
+                title={p.fielderName ? `${p.fielderName} - ${p.name}` : p.name}
+              >
+                <span>{getFieldLabel(p)}</span>
+              </button>
+            ))}
+            {bowlerPlanSuggestion && (
+              <div
+                className="assignmentConfirm"
+                style={{ left: `${bowlerPlanSuggestion.x}%`, top: `${bowlerPlanSuggestion.y}%` }}
+                role="dialog"
+                aria-live="polite"
+              >
+                <p>
+                  {bowlerPlanPlayers.some((player) => player.name === bowlerPlanSuggestion.position.name)
+                    ? `${bowlerPlanSuggestion.position.name} is already selected.`
+                    : `Add ${bowlerPlanSuggestion.position.name} here?`}
+                </p>
+                <div>
+                  <button
+                    type="button"
+                    onClick={addBowlerPlanSuggestedPosition}
+                    disabled={bowlerPlanPlayers.some((player) => player.name === bowlerPlanSuggestion.position.name)}
+                  >
+                    Add
+                  </button>
+                  <button type="button" onClick={() => setBowlerPlanSuggestion(null)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="selector bowlerPlanSelector" aria-label="Bowler plan position selector">
+          <div className="selectorHeader">
+            <h1>Bowler plan positions</h1>
+            <span>
+              {bowlerPlanPlayers.length}/{MAX_POSITIONS}
+            </span>
+          </div>
+          <p className="selectorHint">
+            This field belongs only to the selected bowler scenario. Tap the plan field to add positions.
+          </p>
+
+          <div className="selectedList">
+            {bowlerPlanPlayers.map((player) => (
+              <div
+                key={player.id}
+                className={`selectedRow ${
+                  bowlerPlanDuplicateNameSet.has(normalizeFielderName(player.fielderName)) ? "duplicate" : ""
+                }`}
+              >
+                <label>
+                  <span>{player.name}</span>
+                  <div className="nameEntry">
+                    <input
+                      value={player.fielderName}
+                      onChange={(e) => renameBowlerPlanFielder(player.id, e.target.value)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => handleBowlerPlanFielderDrop(e, player.id)}
+                      placeholder="Fielder name"
+                      aria-label={`${player.name} bowler plan fielder name`}
+                      aria-invalid={bowlerPlanDuplicateNameSet.has(normalizeFielderName(player.fielderName))}
+                    />
+                    {player.fielderName.trim() && (
+                      <div className="nameChips" aria-label="Movable bowler plan fielder name">
+                        <button
+                          type="button"
+                          draggable={!isRequiredPosition(player.name)}
+                          onClick={() => renameBowlerPlanFielder(player.id, "")}
+                          onDragStart={(e) =>
+                            handleBowlerPlanFielderChipDragStart(e, player.id, player.fielderName)
+                          }
+                          title={
+                            isRequiredPosition(player.name)
+                              ? "Fixed position name"
+                              : "Drag to another position, or tap to clear"
+                          }
+                        >
+                          {player.fielderName.trim()}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </label>
+                {isRequiredPosition(player.name) ? (
+                  <span className="requiredPosition">Fixed</span>
+                ) : (
+                  <button
+                    className="removePosition"
+                    onClick={() => removeBowlerPlanPosition(player.id)}
+                    aria-label={`Remove ${player.name}`}
+                  >
+                    x
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {bowlerPlanDuplicateMessage && (
+            <p className="warning" role="alert">
+              {bowlerPlanDuplicateMessage}
+            </p>
+          )}
+
+          {bowlerPlanDepthConflictMessages.map((message) => (
+            <p key={message} className="warning advisory">
+              {message}
+            </p>
+          ))}
+
+          <details className="customPositions">
+            <summary>Add or remove bowler plan position</summary>
+            <div className="positionGrid">
+              {FIELD_POSITIONS.map((position) => {
+                const isSelected = bowlerPlanSelectedNames.has(position.name);
+                return (
+                  <button
+                    key={position.name}
+                    className={`positionOption ${isSelected ? "selected" : ""}`}
+                    onClick={() => toggleBowlerPlanPosition(position)}
+                    disabled={
+                      isRequiredPosition(position.name) ||
+                      (!isSelected && bowlerPlanPlayers.length >= MAX_POSITIONS)
+                    }
+                  >
+                    {position.name}
+                  </button>
+                );
+              })}
+            </div>
+          </details>
+        </section>
+
+        <div className="bowlerPlanActions">
+          <button onClick={saveBowlerPlan}>Save Bowler</button>
+          <button onClick={saveBowlerScenario}>Save Scenario</button>
+          <button onClick={loadBowlerScenario} disabled={!activeScenario}>
+            Load Plan Field
+          </button>
+          <button onClick={resetBowlerPlanFormation}>Suggested XI</button>
+          <button onClick={deleteBowlerScenario} disabled={!activeScenarioId}>
+            Delete Scenario
+          </button>
+          <button onClick={deleteBowlerPlan} disabled={!activeBowlerId}>
+            Delete Bowler
+          </button>
+        </div>
+      </details>
 
       <footer className="actions">
         <button onClick={resetFormation}>Suggested XI</button>
