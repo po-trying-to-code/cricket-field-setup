@@ -547,6 +547,10 @@ textarea {
   z-index: 2;
 }
 
+.player.fixedPlayer {
+  cursor: default;
+}
+
 .assignmentConfirm {
   position: absolute;
   z-index: 4;

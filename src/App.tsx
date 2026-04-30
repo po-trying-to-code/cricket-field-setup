@@ -348,6 +348,8 @@ const drawWrappedText = (
 
 const normalizeFielderName = (name: string) => name.trim().toLowerCase();
 
+const isRequiredPosition = (name: string) => REQUIRED_POSITIONS.includes(name);
+
 const getFieldLabel = (player: SelectedPosition) => player.fielderName.trim() || FIELD_LABELS[player.name] || player.name;
 
 const normalizeSavedFormation = (data: unknown): SavedFormation | null => {
@@ -978,7 +980,7 @@ export default function App() {
   };
 
   const togglePosition = (position: FieldPosition) => {
-    if (REQUIRED_POSITIONS.includes(position.name)) return;
+    if (isRequiredPosition(position.name)) return;
     const selectedPlayer = players.find((player) => player.name === position.name);
     if (selectedPlayer) {
       removePosition(selectedPlayer.id);
@@ -989,7 +991,7 @@ export default function App() {
   };
 
   const removePosition = (id: string) => {
-    setPlayers((prev) => prev.filter((player) => player.id !== id || REQUIRED_POSITIONS.includes(player.name)));
+    setPlayers((prev) => prev.filter((player) => player.id !== id || isRequiredPosition(player.name)));
   };
 
   const renameFielder = (id: string, fielderName: string) => {
@@ -997,6 +999,12 @@ export default function App() {
   };
 
   const handleFielderChipDragStart = (event: React.DragEvent<HTMLButtonElement>, id: string, fielderName: string) => {
+    const sourcePlayer = players.find((player) => player.id === id);
+    if (sourcePlayer && isRequiredPosition(sourcePlayer.name)) {
+      event.preventDefault();
+      return;
+    }
+
     const trimmedName = fielderName.trim();
     if (!trimmedName) return;
     event.dataTransfer.setData("application/x-fielder-id", id);
@@ -1011,7 +1019,15 @@ export default function App() {
     if (!droppedName || sourceId === targetId) return;
 
     setPlayers((prev) => {
+      const sourcePlayer = prev.find((player) => player.id === sourceId);
       const targetPlayer = prev.find((player) => player.id === targetId);
+      if (
+        (sourcePlayer && isRequiredPosition(sourcePlayer.name)) ||
+        (targetPlayer && isRequiredPosition(targetPlayer.name))
+      ) {
+        return prev;
+      }
+
       const targetName = targetPlayer?.fielderName ?? "";
 
       return prev.map((player) => {
@@ -1046,6 +1062,9 @@ export default function App() {
 
   const handlePointerMove = (e: React.PointerEvent, id: string) => {
     if (draggingId !== id || !fieldRef.current) return;
+    const movingPlayer = players.find((player) => player.id === id);
+    if (movingPlayer && isRequiredPosition(movingPlayer.name)) return;
+
     const rect = fieldRef.current.getBoundingClientRect();
     let x = ((e.clientX - rect.left) / rect.width) * 100;
     let y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -1083,6 +1102,7 @@ export default function App() {
     setPlayers((prev) => {
       const draggedPlayer = prev.find((player) => player.id === id);
       if (!draggedPlayer) return prev;
+      if (isRequiredPosition(draggedPlayer.name)) return prev;
 
       const nearestPosition = getNearestFieldPosition(
         draggedPlayer.x,
@@ -1094,6 +1114,17 @@ export default function App() {
       const existingAtNearest = prev.find(
         (player) => player.id !== id && player.name === nearestPosition.name,
       );
+      if (isRequiredPosition(nearestPosition.name) || (existingAtNearest && isRequiredPosition(existingAtNearest.name))) {
+        return prev.map((player) =>
+          player.id === id
+            ? {
+                ...player,
+                x: draggedOriginalPosition.x,
+                y: draggedOriginalPosition.y,
+              }
+            : player,
+        );
+      }
 
       return prev.map((player) => {
         if (player.id === id) {
@@ -1309,9 +1340,12 @@ export default function App() {
           {players.map((p) => (
             <button
               key={p.id}
-              className={`player ${draggingId === p.id ? "dragging" : ""}`}
+              className={`player ${draggingId === p.id ? "dragging" : ""} ${
+                isRequiredPosition(p.name) ? "fixedPlayer" : ""
+              }`}
               style={{ left: `${p.x}%`, top: `${p.y}%` }}
               onPointerDown={(e) => {
+                if (isRequiredPosition(p.name)) return;
                 e.currentTarget.setPointerCapture(e.pointerId);
                 setDraggingId(p.id);
               }}
@@ -1393,10 +1427,14 @@ export default function App() {
                     <div className="nameChips" aria-label="Movable fielder name">
                       <button
                         type="button"
-                        draggable
+                        draggable={!isRequiredPosition(player.name)}
                         onClick={() => renameFielder(player.id, "")}
                         onDragStart={(e) => handleFielderChipDragStart(e, player.id, player.fielderName)}
-                        title="Drag to another position, or tap to clear"
+                        title={
+                          isRequiredPosition(player.name)
+                            ? "Fixed position name"
+                            : "Drag to another position, or tap to clear"
+                        }
                       >
                         {player.fielderName.trim()}
                       </button>
@@ -1404,7 +1442,7 @@ export default function App() {
                   )}
                 </div>
               </label>
-              {REQUIRED_POSITIONS.includes(player.name) ? (
+              {isRequiredPosition(player.name) ? (
                 <span className="requiredPosition">Fixed</span>
               ) : (
                 <button className="removePosition" onClick={() => removePosition(player.id)} aria-label={`Remove ${player.name}`}>
@@ -1437,7 +1475,7 @@ export default function App() {
                   key={position.name}
                   className={`positionOption ${isSelected ? "selected" : ""}`}
                   onClick={() => togglePosition(position)}
-                  disabled={REQUIRED_POSITIONS.includes(position.name) || (!isSelected && players.length >= MAX_POSITIONS)}
+                  disabled={isRequiredPosition(position.name) || (!isSelected && players.length >= MAX_POSITIONS)}
                 >
                   {position.name}
                 </button>
