@@ -15,8 +15,8 @@ There is no test suite in this project.
 
 ## Branches
 
-- **`main`** — field planner only (formations + bowler plans).
-- **`team-planner`** — extended version adding a full coaching planner on top of the field planner (see [Team-planner additions](#team-planner-additions) below).
+- **`main`** — field planner only (formations + bowler plans). **Do not commit or push to `main`.** It is kept as a standalone, stable application.
+- **`team-planner`** — the active development branch. All new work goes here. Always commit and push to `team-planner`. See [Team-planner additions](#team-planner-additions) for what this branch adds.
 
 ## Architecture
 
