@@ -80,6 +80,15 @@ type OpponentPlayer = {
   plan: string;
 };
 
+type SquadPlayer = {
+  id: string;
+  name: string;
+  role: string;
+  battingHand: string;
+  bowlingType: string;
+  notes: string;
+};
+
 type PlannerSection = {
   id: string;
   sectionId: PlannerTabId;
@@ -319,6 +328,7 @@ const STORAGE_KEY = "cricket-field-formation-v2";
 const SAVED_FORMATIONS_KEY = "cricket-field-saved-formations-v1";
 const BOWLER_PLANS_KEY = "cricket-field-bowler-plans-v1";
 const PLANNER_SECTIONS_KEY = "cricket-team-planner-sections-v1";
+const SQUAD_PLAYERS_KEY = "cricket-squad-players-v1";
 const LOCAL_WORKSPACE_ID = "local-workspace";
 const LOCAL_USER_ID = "local-coach";
 const MAX_POSITIONS = 11;
@@ -1206,6 +1216,21 @@ const normalizeBowlerPlan = (data: unknown): BowlerPlan | null => {
   };
 };
 
+const normalizeSquadPlayer = (data: unknown): SquadPlayer | null => {
+  if (!data || typeof data !== "object") return null;
+  const player = data as Partial<SquadPlayer>;
+  if (typeof player.name !== "string") return null;
+
+  return {
+    id: typeof player.id === "string" ? player.id : `squad-${Date.now()}-${createId(player.name || "player")}`,
+    name: player.name,
+    role: typeof player.role === "string" ? player.role : "",
+    battingHand: typeof player.battingHand === "string" ? player.battingHand : "Right",
+    bowlingType: typeof player.bowlingType === "string" ? player.bowlingType : "",
+    notes: typeof player.notes === "string" ? player.notes : "",
+  };
+};
+
 const isPlannerTemplateTab = (
   sectionId: PlannerTabId,
 ): sectionId is PlannerSectionId =>
@@ -1310,6 +1335,7 @@ export default function App() {
   const [players, setPlayers] = useState<SelectedPosition[]>(() => ensureRequiredPositions([], false, false));
   const [savedFormations, setSavedFormations] = useState<SavedFormation[]>([]);
   const [bowlerPlans, setBowlerPlans] = useState<BowlerPlan[]>([]);
+  const [squadPlayers, setSquadPlayers] = useState<SquadPlayer[]>([]);
   const [activeFormationId, setActiveFormationId] = useState("");
   const [formationName, setFormationName] = useState("My Formation");
   const [teamName, setTeamName] = useState("");
@@ -1381,6 +1407,21 @@ export default function App() {
         }
       } catch {
         localStorage.removeItem(BOWLER_PLANS_KEY);
+      }
+    }
+
+    const squadRaw = localStorage.getItem(SQUAD_PLAYERS_KEY);
+    if (squadRaw) {
+      try {
+        const savedSquad = JSON.parse(squadRaw);
+        if (Array.isArray(savedSquad)) {
+          const players = savedSquad
+            .map((item) => normalizeSquadPlayer(item))
+            .filter((item): item is SquadPlayer => Boolean(item));
+          setSquadPlayers(players);
+        }
+      } catch {
+        localStorage.removeItem(SQUAD_PLAYERS_KEY);
       }
     }
 
@@ -1498,6 +1539,26 @@ export default function App() {
   const persistBowlerPlans = (next: BowlerPlan[]) => {
     localStorage.setItem(BOWLER_PLANS_KEY, JSON.stringify(next));
     setBowlerPlans(next);
+  };
+
+  const persistSquadPlayers = (next: SquadPlayer[]) => {
+    localStorage.setItem(SQUAD_PLAYERS_KEY, JSON.stringify(next));
+    setSquadPlayers(next);
+  };
+
+  const addSquadPlayer = () => {
+    persistSquadPlayers([
+      ...squadPlayers,
+      { id: `squad-${Date.now()}`, name: "", role: "", battingHand: "Right", bowlingType: "", notes: "" },
+    ]);
+  };
+
+  const updateSquadPlayer = (id: string, updates: Partial<Omit<SquadPlayer, "id">>) => {
+    persistSquadPlayers(squadPlayers.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+  };
+
+  const removeSquadPlayer = (id: string) => {
+    persistSquadPlayers(squadPlayers.filter((p) => p.id !== id));
   };
 
   const persistPlannerSections = (next: Record<string, PlannerSection>) => {
@@ -2721,6 +2782,92 @@ export default function App() {
               placeholder="Add coaching notes, reminders, player observations, or follow-ups"
             />
           </label>
+
+          {templateSectionId === "team" && (
+            <section className="squadPanel" aria-label="Squad roster">
+              <div className="squadHeader">
+                <div>
+                  <h3>Squad</h3>
+                  <p>Add players, their roles, and coaching notes.</p>
+                </div>
+                <button type="button" onClick={addSquadPlayer}>Add player</button>
+              </div>
+
+              {squadPlayers.length === 0 && (
+                <p className="emptySquad">No squad players added yet.</p>
+              )}
+
+              <div className="opponentGrid">
+                {squadPlayers.map((player) => (
+                  <article key={player.id} className="opponentCard">
+                    <div className="opponentCardHeader">
+                      <strong>{player.name.trim() || "New player"}</strong>
+                      <button type="button" onClick={() => removeSquadPlayer(player.id)}>Remove</button>
+                    </div>
+
+                    <label>
+                      <span>Name</span>
+                      <input
+                        value={player.name}
+                        onChange={(e) => updateSquadPlayer(player.id, { name: e.target.value })}
+                        placeholder="Player name"
+                      />
+                    </label>
+
+                    <label>
+                      <span>Role</span>
+                      <select
+                        value={player.role}
+                        onChange={(e) => updateSquadPlayer(player.id, { role: e.target.value })}
+                      >
+                        <option value="">Select role</option>
+                        <option value="Batter">Batter</option>
+                        <option value="Bowler">Bowler</option>
+                        <option value="All-rounder">All-rounder</option>
+                        <option value="Wicket-keeper">Wicket-keeper</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <span>Batting hand</span>
+                      <select
+                        value={player.battingHand}
+                        onChange={(e) => updateSquadPlayer(player.id, { battingHand: e.target.value })}
+                      >
+                        <option value="Right">Right</option>
+                        <option value="Left">Left</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <span>Bowling type</span>
+                      <select
+                        value={player.bowlingType}
+                        onChange={(e) => updateSquadPlayer(player.id, { bowlingType: e.target.value })}
+                      >
+                        <option value="">None / N/A</option>
+                        <option value="Right-arm pace">Right-arm pace</option>
+                        <option value="Left-arm pace">Left-arm pace</option>
+                        <option value="Off-spin">Off-spin</option>
+                        <option value="Leg-spin">Leg-spin</option>
+                        <option value="Left-arm spin">Left-arm spin</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <span>Coaching notes</span>
+                      <textarea
+                        value={player.notes}
+                        onChange={(e) => updateSquadPlayer(player.id, { notes: e.target.value })}
+                        placeholder="Development focus, technical observations, training priorities"
+                        rows={3}
+                      />
+                    </label>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
 
           {templateSectionId === "match-notes" && (
             <section className="opponentPanel" aria-label="Opponent players">
