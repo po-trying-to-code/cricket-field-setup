@@ -13,13 +13,18 @@ npm run preview    # Serve the production build locally
 
 There is no test suite in this project.
 
+## Branches
+
+- **`main`** — field planner only (formations + bowler plans).
+- **`team-planner`** — extended version adding a full coaching planner on top of the field planner (see [Team-planner additions](#team-planner-additions) below).
+
 ## Architecture
 
 This is a single-page React + TypeScript app (Vite) with **all logic in one file**: `src/App.tsx`. There is no routing, no external state management library, and no backend — all persistence is via `localStorage`.
 
 ### Data model
 
-Three top-level entities, each stored separately in `localStorage`:
+Three top-level entities on `main`, each stored separately in `localStorage`:
 
 | Entity | Storage key | Purpose |
 |---|---|---|
@@ -66,3 +71,45 @@ Clicking an empty part of the field triggers `suggestFieldPosition`, which shows
 ### Styling
 
 All styles are in `src/App.css`. The layout is a single-column grid (`max-width: 720px`, centered) designed for mobile. No CSS framework or preprocessor is used.
+
+## Team-planner additions
+
+The `team-planner` branch extends the app with a **tabbed coaching planner** that wraps the existing field/bowler-plan UI as one tab among many.
+
+### Navigation model
+
+The UI is divided into **groups** (rendered as a top-level nav) and **tabs** within each group:
+
+| Group | Tabs (`PlannerTabId`) |
+|---|---|
+| Home | `overview` |
+| Training | `practice`, `fitness`, `drills` |
+| Team | `team` |
+| Resources | `video-library` |
+| Match Planning | `fielding`, `match-notes` |
+
+`overview`, `fielding`, and `video-library` are display-only tabs with no editable `PlannerSection`. The remaining five (`practice`, `fitness`, `drills`, `team`, `match-notes`) are `PlannerSectionId` tabs that have persisted state.
+
+### New data model additions
+
+| Entity | Storage key | Purpose |
+|---|---|---|
+| `PlannerSection` | `cricket-team-planner-sections-v1` | One section per `PlannerSectionId`, stored as an array |
+
+A `PlannerSection` holds: `title`, `goals`, `notes` (free text), `checklistItems: ChecklistItem[]`, `resourceLinks: ResourceLink[]`, and `opponentPlayers: OpponentPlayer[]` (only used in `match-notes`). It also carries `workspaceId` / `createdBy` / `updatedBy` / timestamps — currently hardcoded to `"local-workspace"` / `"local-coach"` as placeholders for a future multi-user design.
+
+`plannerSections` state is a `Record<string, PlannerSection>` keyed by `sectionId`. `persistPlannerSections` serialises it as `Object.values(next)` (an array) to `localStorage`, then `normalizePlannerSection` parses it back defensively on load.
+
+### Templates
+
+`COACH_TEMPLATES` is a hardcoded array of `PlannerTemplate` objects grouped by `sectionId`. Each template provides preset `title`, `goals`, `checklistItems[]`, `notes`, and optional `resourceLinks`. Applying a template via `applyPlannerTemplate` overwrites the matching `PlannerSection` fields (it does not merge).
+
+`PLANNER_TEMPLATE_DEFAULTS` provides the initial empty-state defaults for each section used by `createPlannerSection`.
+
+### Coaching resource links
+
+`COACHING_RESOURCE_LINKS` and `VIDEO_RESOURCE_CATEGORIES` are hardcoded constants that populate the `video-library` tab and template resource link suggestions. They reference external URLs (Cricket Victoria, PlayCricket) and are not editable by the user.
+
+### `match-notes` specifics
+
+The `match-notes` section adds an `opponentPlayers: OpponentPlayer[]` list (name, role, strengths, plan) alongside the standard goals/checklist/notes. `addOpponentPlayer`, `updateOpponentPlayer`, and `removeOpponentPlayer` are dedicated mutation helpers that always target the `"match-notes"` section directly.
