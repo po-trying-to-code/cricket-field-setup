@@ -49,6 +49,93 @@ type FieldSuggestion = {
   y: number;
 };
 
+type PlannerTabId =
+  | "overview"
+  | "practice"
+  | "fitness"
+  | "drills"
+  | "team"
+  | "video-library"
+  | "fielding"
+  | "match-notes";
+type PlannerSectionId = Exclude<PlannerTabId, "overview" | "fielding" | "video-library">;
+
+type ChecklistItem = {
+  id: string;
+  text: string;
+  done: boolean;
+};
+
+type ResourceLink = {
+  label: string;
+  url: string;
+  description: string;
+};
+
+type OpponentPlayer = {
+  id: string;
+  name: string;
+  role: string;
+  strengths: string;
+  plan: string;
+};
+
+type SquadPlayer = {
+  id: string;
+  name: string;
+  role: string;
+  battingHand: string;
+  bowlingType: string;
+  notes: string;
+};
+
+type PlannerSection = {
+  id: string;
+  sectionId: PlannerTabId;
+  workspaceId: string;
+  title: string;
+  goals: string;
+  checklistItems: ChecklistItem[];
+  notes: string;
+  resourceLinks: ResourceLink[];
+  opponentPlayers: OpponentPlayer[];
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type PlannerTab = {
+  id: PlannerTabId;
+  label: string;
+  summary: string;
+};
+
+type PlannerGroup = {
+  id: string;
+  label: string;
+  tabs: PlannerTabId[];
+};
+
+type PlannerTemplate = {
+  id: string;
+  sectionId: PlannerSectionId;
+  name: string;
+  description: string;
+  title: string;
+  goals: string;
+  checklistItems: string[];
+  notes: string;
+  resourceLinks?: ResourceLink[];
+};
+
+type VideoResourceCategory = {
+  id: string;
+  title: string;
+  description: string;
+  links: ResourceLink[];
+};
+
 const FIELD_POSITIONS: FieldPosition[] = [
   { name: "Bowler", x: 50, y: 31 },
   { name: "Wicket Keeper", x: 50, y: 66 },
@@ -240,8 +327,724 @@ const FIELD_LABELS: Record<string, string> = {
 const STORAGE_KEY = "cricket-field-formation-v2";
 const SAVED_FORMATIONS_KEY = "cricket-field-saved-formations-v1";
 const BOWLER_PLANS_KEY = "cricket-field-bowler-plans-v1";
+const PLANNER_SECTIONS_KEY = "cricket-team-planner-sections-v1";
+const SQUAD_PLAYERS_KEY = "cricket-squad-players-v1";
+const LOCAL_WORKSPACE_ID = "local-workspace";
+const LOCAL_USER_ID = "local-coach";
 const MAX_POSITIONS = 11;
 const REQUIRED_POSITIONS = ["Bowler", "Wicket Keeper"];
+
+const PLANNER_TABS: PlannerTab[] = [
+  {
+    id: "overview",
+    label: "Overview",
+    summary: "Team planning home with quick access to every coaching area.",
+  },
+  {
+    id: "practice",
+    label: "Practice",
+    summary: "Session goals, focus points, and practice-day checklist.",
+  },
+  {
+    id: "fitness",
+    label: "Fitness",
+    summary: "Conditioning, recovery, workloads, and fitness reminders.",
+  },
+  {
+    id: "drills",
+    label: "Drills",
+    summary: "Training drills, skills focus, and coaching cues.",
+  },
+  {
+    id: "team",
+    label: "Team",
+    summary: "Squad management, responsibilities, and team communication.",
+  },
+  {
+    id: "video-library",
+    label: "Video Library",
+    summary: "Open coaching video/resource links grouped by training category.",
+  },
+  {
+    id: "fielding",
+    label: "Fielding Setup",
+    summary: "Interactive ODI/T20 field formations and bowler scenario plans.",
+  },
+  {
+    id: "match-notes",
+    label: "Match Notes",
+    summary: "Match plans, observations, and post-game review notes.",
+  },
+];
+
+const PLANNER_GROUPS: PlannerGroup[] = [
+  {
+    id: "home",
+    label: "Home",
+    tabs: ["overview"],
+  },
+  {
+    id: "training",
+    label: "Training",
+    tabs: ["practice", "fitness", "drills"],
+  },
+  {
+    id: "team",
+    label: "Team",
+    tabs: ["team"],
+  },
+  {
+    id: "resources",
+    label: "Resources",
+    tabs: ["video-library"],
+  },
+  {
+    id: "match-planning",
+    label: "Match Planning",
+    tabs: ["fielding", "match-notes"],
+  },
+];
+
+const COACHING_RESOURCE_LINKS: Record<"practice" | "fitness" | "drills", ResourceLink[]> = {
+  practice: [
+    {
+      label: "Cricket Victoria Coaching Clips",
+      url: "https://www.cricketvictoria.com.au/coaching-clips/",
+      description: "Open coaching clip library with batting, bowling, fielding, wicketkeeping, and modified games ideas.",
+    },
+    {
+      label: "PlayCricket Learn",
+      url: "https://play.cricket.com.au/learn",
+      description: "Cricket Australia learning hub for coaching pathways, drills, and practical coaching support.",
+    },
+  ],
+  fitness: [
+    {
+      label: "Cricket Victoria Strength and Conditioning Clips",
+      url: "https://www.cricketvictoria.com.au/coaching-clips/",
+      description: "Open coaching clips page including strength, conditioning, movement, and training activity references.",
+    },
+    {
+      label: "PlayCricket Learn",
+      url: "https://play.cricket.com.au/learn",
+      description: "General cricket learning hub with coaching support and player development resources.",
+    },
+  ],
+  drills: [
+    {
+      label: "Cricket Victoria Coaching Clips",
+      url: "https://www.cricketvictoria.com.au/coaching-clips/",
+      description: "Open drill ideas grouped by batting, wicketkeeping, fast bowling, spin bowling, fielding, and modified games.",
+    },
+  ],
+};
+
+const VIDEO_RESOURCE_CATEGORIES: VideoResourceCategory[] = [
+  {
+    id: "training-purpose",
+    title: "Training with purpose",
+    description: "Session design ideas for coaches planning purposeful, adaptable training.",
+    links: [
+      {
+        label: "Cricket Victoria - Coaching Clips",
+        url: "https://www.cricketvictoria.com.au/coaching-clips/",
+        description: "Open coaching clips library with a Training with Purpose section.",
+      },
+      {
+        label: "PlayCricket Learn",
+        url: "https://play.cricket.com.au/learn",
+        description: "Cricket Australia learning hub for coaching pathways and practical support.",
+      },
+    ],
+  },
+  {
+    id: "batting",
+    title: "Batting",
+    description: "Batting activities, scoring options, rotation, and game-based batting ideas.",
+    links: [
+      {
+        label: "Cricket Victoria - Batting coaching clips",
+        url: "https://www.cricketvictoria.com.au/coaching-clips/",
+        description: "Use the Batting coaching clips section for visual activity ideas.",
+      },
+    ],
+  },
+  {
+    id: "pace-bowling",
+    title: "Fast bowling",
+    description: "Pace bowling rhythm, accuracy, target work, and bowling session ideas.",
+    links: [
+      {
+        label: "Cricket Victoria - Fast bowling coaching clips",
+        url: "https://www.cricketvictoria.com.au/coaching-clips/",
+        description: "Use the Fast bowling coaching clips section for setup and activity references.",
+      },
+    ],
+  },
+  {
+    id: "spin-bowling",
+    title: "Spin bowling",
+    description: "Spin control, pace/flight variation, and pressure-building drill ideas.",
+    links: [
+      {
+        label: "Cricket Victoria - Spin bowling coaching clips",
+        url: "https://www.cricketvictoria.com.au/coaching-clips/",
+        description: "Use the Spin bowling coaching clips section for activity inspiration.",
+      },
+    ],
+  },
+  {
+    id: "fielding",
+    title: "Fielding",
+    description: "Catching, ground fielding, throwing, run-out, and pressure-fielding ideas.",
+    links: [
+      {
+        label: "Cricket Victoria - Fielding coaching clips",
+        url: "https://www.cricketvictoria.com.au/coaching-clips/",
+        description: "Use the Fielding coaching clips section for practical activity setup.",
+      },
+    ],
+  },
+  {
+    id: "wicketkeeping",
+    title: "Wicketkeeping",
+    description: "Keeping movement, glove work, standing up/back, and keeper communication.",
+    links: [
+      {
+        label: "Cricket Victoria - Wicketkeeping coaching clips",
+        url: "https://www.cricketvictoria.com.au/coaching-clips/",
+        description: "Use the Wicketkeeping coaching clips section for visual drill ideas.",
+      },
+    ],
+  },
+  {
+    id: "fitness",
+    title: "Strength and conditioning",
+    description: "Movement prep, strength, conditioning, mobility, and recovery ideas for cricket.",
+    links: [
+      {
+        label: "Cricket Victoria - Strength and conditioning clips",
+        url: "https://www.cricketvictoria.com.au/coaching-clips/",
+        description: "Use the Strength and conditioning coaching clips section for training ideas.",
+      },
+      {
+        label: "PlayCricket Learn",
+        url: "https://play.cricket.com.au/learn",
+        description: "General cricket learning hub with coaching and player-development resources.",
+      },
+    ],
+  },
+  {
+    id: "modified-games",
+    title: "Modified games and drills",
+    description: "Game-based activities that can be adapted for player age, ability, and space.",
+    links: [
+      {
+        label: "Cricket Victoria - Modified games and drills",
+        url: "https://www.cricketvictoria.com.au/coaching-clips/",
+        description: "Use the Modified games & drills section for adaptable practice ideas.",
+      },
+    ],
+  },
+  {
+    id: "coach-role",
+    title: "Role of a coach",
+    description: "Coach behaviour, session management, safety, communication, and player support.",
+    links: [
+      {
+        label: "Cricket Victoria - Role of a Coach",
+        url: "https://www.cricketvictoria.com.au/coaching-clips/",
+        description: "Use the Role of a Coach section for coaching-practice references.",
+      },
+    ],
+  },
+];
+
+const PLANNER_TEMPLATE_DEFAULTS: Record<PlannerSectionId, Omit<PlannerSection, "id" | "createdAt" | "updatedAt">> = {
+  practice: {
+    sectionId: "practice",
+    workspaceId: LOCAL_WORKSPACE_ID,
+    title: "Practice session",
+    goals: "Define session focus, skills to sharpen, and match scenario to rehearse.",
+    checklistItems: [
+      { id: "practice-warmup", text: "Warm-up and mobility complete", done: false },
+      { id: "practice-skill", text: "Primary skill block prepared", done: false },
+      { id: "practice-review", text: "End-of-session review notes captured", done: false },
+    ],
+    notes: "",
+    resourceLinks: [],
+    opponentPlayers: [],
+    createdBy: LOCAL_USER_ID,
+    updatedBy: LOCAL_USER_ID,
+  },
+  fitness: {
+    sectionId: "fitness",
+    workspaceId: LOCAL_WORKSPACE_ID,
+    title: "Fitness session",
+    goals: "Track conditioning, strength, mobility, recovery, and workload balance.",
+    checklistItems: [
+      { id: "fitness-readiness", text: "Player readiness checked", done: false },
+      { id: "fitness-conditioning", text: "Conditioning or strength block complete", done: false },
+      { id: "fitness-recovery", text: "Recovery and hydration reminders shared", done: false },
+    ],
+    notes: "",
+    resourceLinks: [],
+    opponentPlayers: [],
+    createdBy: LOCAL_USER_ID,
+    updatedBy: LOCAL_USER_ID,
+  },
+  drills: {
+    sectionId: "drills",
+    workspaceId: LOCAL_WORKSPACE_ID,
+    title: "Training drills",
+    goals: "Plan skill drills, coaching points, intensity, and progression.",
+    checklistItems: [
+      { id: "drills-batting", text: "Batting or bowling drill prepared", done: false },
+      { id: "drills-fielding", text: "Fielding drill prepared", done: false },
+      { id: "drills-constraint", text: "Match-like constraint added", done: false },
+    ],
+    notes: "",
+    resourceLinks: [],
+    opponentPlayers: [],
+    createdBy: LOCAL_USER_ID,
+    updatedBy: LOCAL_USER_ID,
+  },
+  team: {
+    sectionId: "team",
+    workspaceId: LOCAL_WORKSPACE_ID,
+    title: "Team management",
+    goals: "Capture squad roles, communication points, availability, and responsibilities.",
+    checklistItems: [
+      { id: "team-availability", text: "Availability checked", done: false },
+      { id: "team-roles", text: "Roles and responsibilities confirmed", done: false },
+      { id: "team-message", text: "Team message or action items shared", done: false },
+    ],
+    notes: "",
+    resourceLinks: [],
+    opponentPlayers: [],
+    createdBy: LOCAL_USER_ID,
+    updatedBy: LOCAL_USER_ID,
+  },
+  "match-notes": {
+    sectionId: "match-notes",
+    workspaceId: LOCAL_WORKSPACE_ID,
+    title: "Match notes",
+    goals: "Prepare match plans, tactical reminders, and post-game review notes.",
+    checklistItems: [
+      { id: "match-opposition", text: "Opposition strengths noted", done: false },
+      { id: "match-plan", text: "Bowling and batting plans reviewed", done: false },
+      { id: "match-review", text: "Post-match learnings captured", done: false },
+    ],
+    notes: "",
+    resourceLinks: [],
+    opponentPlayers: [],
+    createdBy: LOCAL_USER_ID,
+    updatedBy: LOCAL_USER_ID,
+  },
+};
+
+const COACH_TEMPLATES: PlannerTemplate[] = [
+  {
+    id: "practice-balanced",
+    sectionId: "practice",
+    name: "Balanced team practice",
+    description: "A full-team session balancing skill work, fielding standards, and a short match scenario.",
+    title: "Balanced team practice",
+    goals: "Give every player touches across batting, bowling, fielding, and decision-making while keeping the session energetic and safe.",
+    checklistItems: [
+      "Quick warm-up and throwing prep",
+      "Batting rotation with calling and running",
+      "Bowling accuracy block with targets",
+      "Catching and ground fielding standards",
+      "10-minute match scenario finish",
+    ],
+    notes: "Use small groups to reduce waiting time. Finish by asking players what improved and what needs attention next session.",
+  },
+  {
+    id: "practice-batting",
+    sectionId: "practice",
+    name: "Batting-focused session",
+    description: "A batting day built around scoring options, strike rotation, and game awareness.",
+    title: "Batting-focused practice",
+    goals: "Help batters build repeatable scoring options, rotate strike under pressure, and choose options based on field placement.",
+    checklistItems: [
+      "Warm-up with movement and reaction catching",
+      "Technical batting block by player need",
+      "Strike rotation and calling drill",
+      "Boundary option practice against set fields",
+      "Scenario: chase target with wickets/overs constraint",
+    ],
+    notes: "Pair each batter with one simple focus. Keep bowlers involved with clear target zones and feedback roles.",
+  },
+  {
+    id: "practice-bowling",
+    sectionId: "practice",
+    name: "Bowling-focused session",
+    description: "A bowling day for line, length, variations, and field-linked plans.",
+    title: "Bowling-focused practice",
+    goals: "Build bowling consistency and connect each bowler's plan to realistic fields and batter matchups.",
+    checklistItems: [
+      "Bowling warm-up and run-up rhythm",
+      "Line and length target work",
+      "Variation practice with clear outcome",
+      "Bowler field plan discussion",
+      "Scenario: defend runs at start/death overs",
+    ],
+    notes: "Ask each bowler to name the plan before bowling. Link the plan to a field in Fielding Setup when useful.",
+  },
+  {
+    id: "practice-fielding",
+    sectionId: "practice",
+    name: "Fielding intensity session",
+    description: "A high-energy session for catches, stops, throws, and fielding standards.",
+    title: "Fielding intensity practice",
+    goals: "Raise fielding intensity, improve repeatable technique, and make fielders comfortable with pressure decisions.",
+    checklistItems: [
+      "Dynamic warm-up and shoulder prep",
+      "Catching circuit: flat, high, and close catches",
+      "Ground fielding: attack, gather, release",
+      "Throwing to keeper/bowler end",
+      "Pressure fielding challenge with scoring",
+    ],
+    notes: "Keep reps short and sharp. Reward clean technique and communication, not only speed.",
+  },
+  {
+    id: "practice-scenario",
+    sectionId: "practice",
+    name: "Match scenario practice",
+    description: "A practice built around realistic over, score, wicket, and tactical situations.",
+    title: "Match scenario practice",
+    goals: "Prepare players to make better tactical choices under match-like constraints.",
+    checklistItems: [
+      "Set scenario: overs, runs, wickets, field restrictions",
+      "Confirm batting and bowling plans",
+      "Run scenario with live scoring",
+      "Pause once for tactical discussion",
+      "Review decisions and next actions",
+    ],
+    notes: "Use one clear situation, not too many. The goal is decision quality and communication under pressure.",
+  },
+  {
+    id: "fitness-warmup",
+    sectionId: "fitness",
+    name: "Pre-practice warm-up",
+    description: "A simple readiness routine before cricket skill work.",
+    title: "Pre-practice warm-up",
+    goals: "Prepare players physically and mentally for training while reducing avoidable injury risk.",
+    checklistItems: [
+      "Light pulse raiser",
+      "Mobility: hips, ankles, thoracic spine",
+      "Activation: glutes, core, shoulders",
+      "Progressive running and change of direction",
+      "Throwing and catching prep",
+    ],
+    notes: "Keep it consistent enough that senior players can lead it when needed.",
+  },
+  {
+    id: "fitness-conditioning",
+    sectionId: "fitness",
+    name: "Conditioning and running",
+    description: "Cricket-specific running and repeat-effort conditioning.",
+    title: "Conditioning and running",
+    goals: "Improve repeat sprint ability, running between wickets, and recovery between high-intensity efforts.",
+    checklistItems: [
+      "Readiness check before intensity",
+      "Running mechanics and acceleration",
+      "Shuttle runs with cricket turns",
+      "Repeat sprint block with rest control",
+      "Cool-down and hydration",
+    ],
+    notes: "Adjust volume for age, role, and recent workload. Avoid hard conditioning immediately before important matches.",
+  },
+  {
+    id: "fitness-strength",
+    sectionId: "fitness",
+    name: "Strength and mobility",
+    description: "A safe bodyweight/resistance session for cricket movement quality.",
+    title: "Strength and mobility",
+    goals: "Build general strength, posture, and movement control for batting, bowling, fielding, and wicketkeeping.",
+    checklistItems: [
+      "Movement quality screen",
+      "Lower-body strength pattern",
+      "Upper-body push/pull pattern",
+      "Core anti-rotation work",
+      "Mobility and recovery finish",
+    ],
+    notes: "Prioritize technique over load. Note players who need modified work.",
+  },
+  {
+    id: "fitness-recovery",
+    sectionId: "fitness",
+    name: "Recovery session",
+    description: "Low-intensity reset for tired players or post-match training.",
+    title: "Recovery session",
+    goals: "Help players recover, reset movement, and prepare for the next training or match block.",
+    checklistItems: [
+      "Player soreness and fatigue check",
+      "Easy movement and mobility",
+      "Light catching or touch work",
+      "Breathing and cool-down",
+      "Hydration and sleep reminder",
+    ],
+    notes: "Use this after heavy match loads or when players look flat. Keep intensity deliberately low.",
+  },
+  {
+    id: "fitness-match-readiness",
+    sectionId: "fitness",
+    name: "Match-day readiness",
+    description: "A short readiness checklist before game day.",
+    title: "Match-day readiness",
+    goals: "Confirm players are physically ready and know their preparation responsibilities.",
+    checklistItems: [
+      "Availability and injury status checked",
+      "Warm-up leaders assigned",
+      "Hydration and nutrition reminder",
+      "Bowling workload notes reviewed",
+      "Match roles confirmed",
+    ],
+    notes: "Use this the day before or morning of the match. Keep it simple and clear.",
+  },
+  {
+    id: "drills-batting-rotation",
+    sectionId: "drills",
+    name: "Batting rotation drill set",
+    description: "Drills for singles, calling, gaps, and batting tempo.",
+    title: "Batting rotation drill set",
+    goals: "Improve strike rotation, calling clarity, and batter awareness of field gaps.",
+    checklistItems: [
+      "Drop-and-run calling drill",
+      "Gap hitting with cone targets",
+      "Two-run turning technique",
+      "Pressure rotation challenge",
+      "Review communication standards",
+    ],
+    notes: "Score the drill by good decisions as well as runs. Make batters call early and loudly.",
+  },
+  {
+    id: "drills-pace-accuracy",
+    sectionId: "drills",
+    name: "Pace bowling accuracy drill set",
+    description: "Target-based pace bowling drills for repeatable line and length.",
+    title: "Pace bowling accuracy drill set",
+    goals: "Help pace bowlers repeat their best length and understand when to change plan.",
+    checklistItems: [
+      "Run-up rhythm check",
+      "Good length target zone",
+      "Channel outside off target",
+      "Yorker or slower-ball option",
+      "Field plan conversation",
+    ],
+    notes: "Track simple outcomes: hit target, near target, miss. Keep feedback short between balls.",
+  },
+  {
+    id: "drills-spin-control",
+    sectionId: "drills",
+    name: "Spin bowling control drill set",
+    description: "Spin drills for pace, shape, accuracy, and batter pressure.",
+    title: "Spin bowling control drill set",
+    goals: "Develop spin control, variation discipline, and fields that support the bowler's method.",
+    checklistItems: [
+      "Stock ball target",
+      "Pace/flight variation with same action",
+      "Batter pressure scoring game",
+      "Boundary protection scenario",
+      "Review field and matchup plan",
+    ],
+    notes: "Encourage spin bowlers to own a simple plan before adding too many variations.",
+  },
+  {
+    id: "drills-fielding",
+    sectionId: "drills",
+    name: "Catching and ground fielding drill set",
+    description: "Core fielding drills for hands, body position, and release.",
+    title: "Catching and ground fielding drill set",
+    goals: "Build reliable fielding habits under realistic speed and movement.",
+    checklistItems: [
+      "Close catching hands drill",
+      "High catching movement drill",
+      "Long barrier and attack options",
+      "Pick-up and throw release",
+      "Pressure relay or run-out challenge",
+    ],
+    notes: "Rotate players through different angles. Reinforce body shape and communication.",
+  },
+  {
+    id: "drills-keeping",
+    sectionId: "drills",
+    name: "Wicketkeeping basics drill set",
+    description: "A simple wicketkeeping block for movement, takes, and standing up.",
+    title: "Wicketkeeping basics drill set",
+    goals: "Improve keeper movement, glove presentation, and consistency standing back/up.",
+    checklistItems: [
+      "Stance and balance check",
+      "Take outside off and leg side",
+      "Footwork to gather throws",
+      "Standing up reaction takes",
+      "Keeper communication reminders",
+    ],
+    notes: "Keep reps clean and realistic. Add fatigue only after technique is stable.",
+  },
+  {
+    id: "team-weekly-checkin",
+    sectionId: "team",
+    name: "Weekly team check-in",
+    description: "A short team rhythm for availability, mood, roles, and focus.",
+    title: "Weekly team check-in",
+    goals: "Align the team on priorities, availability, and standards for the week.",
+    checklistItems: [
+      "Availability and injuries reviewed",
+      "Training focus shared",
+      "Match or selection updates noted",
+      "Player questions captured",
+      "Action items assigned",
+    ],
+    notes: "Keep the meeting short. Capture decisions clearly so players know what happens next.",
+  },
+  {
+    id: "team-role-assignment",
+    sectionId: "team",
+    name: "Match role assignment",
+    description: "Assign match-day roles and responsibilities.",
+    title: "Match role assignment",
+    goals: "Make sure every player understands their match role and preparation responsibility.",
+    checklistItems: [
+      "Captain/vice-captain responsibilities",
+      "Opening batting/bowling roles",
+      "Middle-over and death-over plans",
+      "Fielding leadership roles",
+      "Warm-up and equipment responsibilities",
+    ],
+    notes: "Use clear roles but leave room for match conditions. Note any player development role.",
+  },
+  {
+    id: "team-availability",
+    sectionId: "team",
+    name: "Player availability review",
+    description: "Review squad availability and selection constraints.",
+    title: "Player availability review",
+    goals: "Understand who is available, limited, injured, or needs workload management.",
+    checklistItems: [
+      "Available players listed",
+      "Unavailable players noted",
+      "Injury/workload limits captured",
+      "Selection gaps identified",
+      "Follow-up messages sent",
+    ],
+    notes: "Update this before selection discussions. Keep availability separate from performance judgement.",
+  },
+  {
+    id: "team-standards",
+    sectionId: "team",
+    name: "Team standards discussion",
+    description: "A guided conversation on team expectations and behaviours.",
+    title: "Team standards discussion",
+    goals: "Agree the behaviours, communication, and effort standards expected from the group.",
+    checklistItems: [
+      "One positive team standard named",
+      "One standard to improve named",
+      "Players suggest practical actions",
+      "Captain confirms message",
+      "Coach records follow-up",
+    ],
+    notes: "Make standards observable. Avoid vague phrases unless they are linked to match/training behaviours.",
+  },
+  {
+    id: "team-feedback",
+    sectionId: "team",
+    name: "Post-training feedback",
+    description: "Collect coach and player feedback after training.",
+    title: "Post-training feedback",
+    goals: "Capture what worked, what players learned, and what should change next time.",
+    checklistItems: [
+      "Session goal reviewed",
+      "Player feedback captured",
+      "Coach observation noted",
+      "Next-session adjustment chosen",
+      "Individual follow-ups listed",
+    ],
+    notes: "Write feedback while it is fresh. Keep the next action realistic and specific.",
+  },
+  {
+    id: "match-pre",
+    sectionId: "match-notes",
+    name: "Pre-match plan",
+    description: "A simple match plan covering conditions, roles, and tactical priorities.",
+    title: "Pre-match plan",
+    goals: "Prepare the team with clear roles, conditions awareness, and simple tactical priorities.",
+    checklistItems: [
+      "Conditions and pitch notes",
+      "Batting plan confirmed",
+      "Bowling plan confirmed",
+      "Fielding standards highlighted",
+      "Captain message agreed",
+    ],
+    notes: "Keep the match plan short enough to remember. Link detailed fields in Fielding Setup if needed.",
+  },
+  {
+    id: "match-opposition",
+    sectionId: "match-notes",
+    name: "Opposition analysis",
+    description: "Capture opposition strengths, risks, and matchup ideas.",
+    title: "Opposition analysis",
+    goals: "Identify simple plans against key opposition players and team patterns.",
+    checklistItems: [
+      "Key batters noted",
+      "Key bowlers noted",
+      "Scoring areas or weaknesses identified",
+      "Matchup ideas listed",
+      "Fielding/bowling adjustments considered",
+    ],
+    notes: "Focus on usable match information, not long scouting notes. Keep plans flexible.",
+  },
+  {
+    id: "match-bowling-innings",
+    sectionId: "match-notes",
+    name: "Bowling innings plan",
+    description: "Plan phases, bowlers, fields, and pressure moments.",
+    title: "Bowling innings plan",
+    goals: "Set clear bowling-phase options and fielding priorities for powerplay, middle, and death overs.",
+    checklistItems: [
+      "Opening bowling plan",
+      "Middle-over control plan",
+      "Death-over options",
+      "Boundary riders and saving-one priorities",
+      "Bowler-specific scenario fields checked",
+    ],
+    notes: "Use the Bowler Plans area in Fielding Setup for specific bowler/matchup fields.",
+  },
+  {
+    id: "match-batting-chase",
+    sectionId: "match-notes",
+    name: "Batting chase plan",
+    description: "Prepare chase tempo, partnerships, and risk windows.",
+    title: "Batting chase plan",
+    goals: "Help batters understand required tempo, risk management, and communication through a chase.",
+    checklistItems: [
+      "Required rate targets by phase",
+      "Powerplay scoring intent",
+      "Middle-over rotation plan",
+      "Boundary options and risk windows",
+      "Finishing roles discussed",
+    ],
+    notes: "Give batters phase targets, not ball-by-ball instructions. Review after the match.",
+  },
+  {
+    id: "match-review",
+    sectionId: "match-notes",
+    name: "Post-match review",
+    description: "Capture learnings quickly after a match.",
+    title: "Post-match review",
+    goals: "Record useful learnings while they are fresh and turn them into next-session actions.",
+    checklistItems: [
+      "What went well",
+      "Key turning point",
+      "One tactical learning",
+      "One skill learning",
+      "Next practice action",
+    ],
+    notes: "Keep review constructive. Separate outcome emotion from repeatable learning.",
+  },
+];
 
 const createId = (name: string) =>
   name
@@ -413,10 +1216,126 @@ const normalizeBowlerPlan = (data: unknown): BowlerPlan | null => {
   };
 };
 
+const normalizeSquadPlayer = (data: unknown): SquadPlayer | null => {
+  if (!data || typeof data !== "object") return null;
+  const player = data as Partial<SquadPlayer>;
+  if (typeof player.name !== "string") return null;
+
+  return {
+    id: typeof player.id === "string" ? player.id : `squad-${Date.now()}-${createId(player.name || "player")}`,
+    name: player.name,
+    role: typeof player.role === "string" ? player.role : "",
+    battingHand: typeof player.battingHand === "string" ? player.battingHand : "Right",
+    bowlingType: typeof player.bowlingType === "string" ? player.bowlingType : "",
+    notes: typeof player.notes === "string" ? player.notes : "",
+  };
+};
+
+const isPlannerTemplateTab = (
+  sectionId: PlannerTabId,
+): sectionId is PlannerSectionId =>
+  sectionId !== "overview" && sectionId !== "fielding" && sectionId !== "video-library";
+
+const createPlannerSection = (sectionId: PlannerSectionId): PlannerSection => {
+  const now = new Date().toISOString();
+  const defaults = PLANNER_TEMPLATE_DEFAULTS[sectionId];
+
+  return {
+    ...defaults,
+    id: `${LOCAL_WORKSPACE_ID}-${sectionId}`,
+    checklistItems: defaults.checklistItems.map((item) => ({ ...item })),
+    createdAt: now,
+    updatedAt: now,
+  };
+};
+
+const getTemplateResourceLinks = (template: PlannerTemplate): ResourceLink[] => {
+  if (template.resourceLinks) return template.resourceLinks;
+  if (template.sectionId === "practice" || template.sectionId === "fitness" || template.sectionId === "drills") {
+    return COACHING_RESOURCE_LINKS[template.sectionId];
+  }
+  return [];
+};
+
+const normalizePlannerSection = (data: unknown): PlannerSection | null => {
+  if (!data || typeof data !== "object") return null;
+  const section = data as Partial<PlannerSection>;
+  if (typeof section.sectionId !== "string" || !isPlannerTemplateTab(section.sectionId as PlannerTabId)) return null;
+
+  const defaults = createPlannerSection(section.sectionId as PlannerSectionId);
+  const checklistItems = Array.isArray(section.checklistItems)
+    ? section.checklistItems
+        .filter((item) => Boolean(item) && typeof item === "object")
+        .map((item, index) => ({
+          id: typeof (item as Partial<ChecklistItem>).id === "string" ? (item as Partial<ChecklistItem>).id! : `${defaults.id}-item-${index}`,
+          text: typeof (item as Partial<ChecklistItem>).text === "string" ? (item as Partial<ChecklistItem>).text! : "",
+          done: typeof (item as Partial<ChecklistItem>).done === "boolean" ? (item as Partial<ChecklistItem>).done! : false,
+        }))
+        .filter((item) => item.text.trim())
+    : defaults.checklistItems;
+  const resourceLinks = Array.isArray(section.resourceLinks)
+    ? section.resourceLinks
+        .filter((item) => Boolean(item) && typeof item === "object")
+        .map((item) => ({
+          label: typeof (item as Partial<ResourceLink>).label === "string" ? (item as Partial<ResourceLink>).label! : "",
+          url: typeof (item as Partial<ResourceLink>).url === "string" ? (item as Partial<ResourceLink>).url! : "",
+          description:
+            typeof (item as Partial<ResourceLink>).description === "string"
+              ? (item as Partial<ResourceLink>).description!
+              : "",
+        }))
+        .filter((item) => item.label.trim() && item.url.trim())
+    : defaults.resourceLinks;
+  const opponentPlayers = Array.isArray(section.opponentPlayers)
+    ? section.opponentPlayers
+        .filter((item) => Boolean(item) && typeof item === "object")
+        .map((item, index) => ({
+          id:
+            typeof (item as Partial<OpponentPlayer>).id === "string"
+              ? (item as Partial<OpponentPlayer>).id!
+              : `${defaults.id}-opponent-${index}`,
+          name: typeof (item as Partial<OpponentPlayer>).name === "string" ? (item as Partial<OpponentPlayer>).name! : "",
+          role: typeof (item as Partial<OpponentPlayer>).role === "string" ? (item as Partial<OpponentPlayer>).role! : "",
+          strengths:
+            typeof (item as Partial<OpponentPlayer>).strengths === "string"
+              ? (item as Partial<OpponentPlayer>).strengths!
+              : "",
+          plan: typeof (item as Partial<OpponentPlayer>).plan === "string" ? (item as Partial<OpponentPlayer>).plan! : "",
+        }))
+    : defaults.opponentPlayers;
+
+  return {
+    ...defaults,
+    id: typeof section.id === "string" ? section.id : defaults.id,
+    workspaceId: typeof section.workspaceId === "string" ? section.workspaceId : LOCAL_WORKSPACE_ID,
+    title: typeof section.title === "string" ? section.title : defaults.title,
+    goals: typeof section.goals === "string" ? section.goals : defaults.goals,
+    checklistItems,
+    notes: typeof section.notes === "string" ? section.notes : defaults.notes,
+    resourceLinks,
+    opponentPlayers,
+    createdBy: typeof section.createdBy === "string" ? section.createdBy : LOCAL_USER_ID,
+    updatedBy: typeof section.updatedBy === "string" ? section.updatedBy : LOCAL_USER_ID,
+    createdAt: typeof section.createdAt === "string" ? section.createdAt : defaults.createdAt,
+    updatedAt: typeof section.updatedAt === "string" ? section.updatedAt : defaults.updatedAt,
+  };
+};
+
 export default function App() {
+  const [activeTab, setActiveTab] = useState<PlannerTabId>("overview");
+  const [previewTemplateId, setPreviewTemplateId] = useState("");
+  const [plannerSections, setPlannerSections] = useState<Record<string, PlannerSection>>(() =>
+    Object.fromEntries(
+      Object.keys(PLANNER_TEMPLATE_DEFAULTS).map((sectionId) => [
+        sectionId,
+        createPlannerSection(sectionId as PlannerSectionId),
+      ]),
+    ),
+  );
   const [players, setPlayers] = useState<SelectedPosition[]>(() => ensureRequiredPositions([], false, false));
   const [savedFormations, setSavedFormations] = useState<SavedFormation[]>([]);
   const [bowlerPlans, setBowlerPlans] = useState<BowlerPlan[]>([]);
+  const [squadPlayers, setSquadPlayers] = useState<SquadPlayer[]>([]);
   const [activeFormationId, setActiveFormationId] = useState("");
   const [formationName, setFormationName] = useState("My Formation");
   const [teamName, setTeamName] = useState("");
@@ -441,6 +1360,26 @@ export default function App() {
   const bowlerPlanFieldRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    const plannerRaw = localStorage.getItem(PLANNER_SECTIONS_KEY);
+    if (plannerRaw) {
+      try {
+        const savedData = JSON.parse(plannerRaw);
+        if (Array.isArray(savedData)) {
+          const sections = savedData
+            .map((item) => normalizePlannerSection(item))
+            .filter((item): item is PlannerSection => Boolean(item));
+          if (sections.length) {
+            setPlannerSections((prev) => ({
+              ...prev,
+              ...Object.fromEntries(sections.map((section) => [section.sectionId, section])),
+            }));
+          }
+        }
+      } catch {
+        localStorage.removeItem(PLANNER_SECTIONS_KEY);
+      }
+    }
+
     const savedRaw = localStorage.getItem(SAVED_FORMATIONS_KEY);
     if (savedRaw) {
       try {
@@ -468,6 +1407,21 @@ export default function App() {
         }
       } catch {
         localStorage.removeItem(BOWLER_PLANS_KEY);
+      }
+    }
+
+    const squadRaw = localStorage.getItem(SQUAD_PLAYERS_KEY);
+    if (squadRaw) {
+      try {
+        const savedSquad = JSON.parse(squadRaw);
+        if (Array.isArray(savedSquad)) {
+          const players = savedSquad
+            .map((item) => normalizeSquadPlayer(item))
+            .filter((item): item is SquadPlayer => Boolean(item));
+          setSquadPlayers(players);
+        }
+      } catch {
+        localStorage.removeItem(SQUAD_PLAYERS_KEY);
       }
     }
 
@@ -585,6 +1539,130 @@ export default function App() {
   const persistBowlerPlans = (next: BowlerPlan[]) => {
     localStorage.setItem(BOWLER_PLANS_KEY, JSON.stringify(next));
     setBowlerPlans(next);
+  };
+
+  const persistSquadPlayers = (next: SquadPlayer[]) => {
+    localStorage.setItem(SQUAD_PLAYERS_KEY, JSON.stringify(next));
+    setSquadPlayers(next);
+  };
+
+  const addSquadPlayer = () => {
+    persistSquadPlayers([
+      ...squadPlayers,
+      { id: `squad-${Date.now()}`, name: "", role: "", battingHand: "Right", bowlingType: "", notes: "" },
+    ]);
+  };
+
+  const updateSquadPlayer = (id: string, updates: Partial<Omit<SquadPlayer, "id">>) => {
+    persistSquadPlayers(squadPlayers.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+  };
+
+  const removeSquadPlayer = (id: string) => {
+    persistSquadPlayers(squadPlayers.filter((p) => p.id !== id));
+  };
+
+  const persistPlannerSections = (next: Record<string, PlannerSection>) => {
+    localStorage.setItem(PLANNER_SECTIONS_KEY, JSON.stringify(Object.values(next)));
+    setPlannerSections(next);
+  };
+
+  const updatePlannerSection = (
+    sectionId: PlannerSectionId,
+    updates: Partial<
+      Pick<PlannerSection, "title" | "goals" | "notes" | "checklistItems" | "resourceLinks" | "opponentPlayers">
+    >,
+  ) => {
+    const current = plannerSections[sectionId] ?? createPlannerSection(sectionId);
+    persistPlannerSections({
+      ...plannerSections,
+      [sectionId]: {
+        ...current,
+        ...updates,
+        updatedBy: LOCAL_USER_ID,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+  };
+
+  const addChecklistItem = (sectionId: PlannerSectionId) => {
+    const current = plannerSections[sectionId] ?? createPlannerSection(sectionId);
+    updatePlannerSection(sectionId, {
+      checklistItems: [
+        ...current.checklistItems,
+        {
+          id: `${sectionId}-${Date.now()}`,
+          text: "New checklist item",
+          done: false,
+        },
+      ],
+    });
+  };
+
+  const applyPlannerTemplate = (template: PlannerTemplate) => {
+    updatePlannerSection(template.sectionId, {
+      title: template.title,
+      goals: template.goals,
+      checklistItems: template.checklistItems.map((text, index) => ({
+        id: `${template.id}-item-${index}`,
+        text,
+        done: false,
+      })),
+      notes: template.notes,
+      resourceLinks: getTemplateResourceLinks(template),
+    });
+    setPreviewTemplateId("");
+  };
+
+  const updateChecklistItem = (
+    sectionId: PlannerSectionId,
+    itemId: string,
+    updates: Partial<ChecklistItem>,
+  ) => {
+    const current = plannerSections[sectionId] ?? createPlannerSection(sectionId);
+    updatePlannerSection(sectionId, {
+      checklistItems: current.checklistItems.map((item) =>
+        item.id === itemId ? { ...item, ...updates } : item,
+      ),
+    });
+  };
+
+  const removeChecklistItem = (sectionId: PlannerSectionId, itemId: string) => {
+    const current = plannerSections[sectionId] ?? createPlannerSection(sectionId);
+    updatePlannerSection(sectionId, {
+      checklistItems: current.checklistItems.filter((item) => item.id !== itemId),
+    });
+  };
+
+  const addOpponentPlayer = () => {
+    const current = plannerSections["match-notes"] ?? createPlannerSection("match-notes");
+    updatePlannerSection("match-notes", {
+      opponentPlayers: [
+        ...current.opponentPlayers,
+        {
+          id: `opponent-${Date.now()}`,
+          name: "",
+          role: "",
+          strengths: "",
+          plan: "",
+        },
+      ],
+    });
+  };
+
+  const updateOpponentPlayer = (id: string, updates: Partial<Omit<OpponentPlayer, "id">>) => {
+    const current = plannerSections["match-notes"] ?? createPlannerSection("match-notes");
+    updatePlannerSection("match-notes", {
+      opponentPlayers: current.opponentPlayers.map((player) =>
+        player.id === id ? { ...player, ...updates } : player,
+      ),
+    });
+  };
+
+  const removeOpponentPlayer = (id: string) => {
+    const current = plannerSections["match-notes"] ?? createPlannerSection("match-notes");
+    updatePlannerSection("match-notes", {
+      opponentPlayers: current.opponentPlayers.filter((player) => player.id !== id),
+    });
   };
 
   const saveFormation = () => {
@@ -1474,9 +2552,423 @@ export default function App() {
       } - ODI/T20 Field Planner`,
     [formationName, isLeftHander, isEndOverRotated],
   );
+  const activePlannerTab = PLANNER_TABS.find((tab) => tab.id === activeTab) ?? PLANNER_TABS[0];
+  const templateSectionId = isPlannerTemplateTab(activeTab) ? activeTab : null;
+  const templateSection = templateSectionId ? plannerSections[templateSectionId] ?? createPlannerSection(templateSectionId) : null;
+  const availableTemplates = templateSectionId
+    ? COACH_TEMPLATES.filter((template) => template.sectionId === templateSectionId)
+    : [];
+  const previewTemplate = availableTemplates.find((template) => template.id === previewTemplateId) ?? null;
+  const recentPlannerSections = Object.values(plannerSections)
+    .filter((section) => isPlannerTemplateTab(section.sectionId))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 3);
+  const activePlannerGroup =
+    PLANNER_GROUPS.find((group) => group.tabs.includes(activeTab)) ?? PLANNER_GROUPS[0];
+  const activeGroupTabs = activePlannerGroup.tabs
+    .map((tabId) => PLANNER_TABS.find((tab) => tab.id === tabId))
+    .filter((tab): tab is PlannerTab => Boolean(tab));
+  const switchPlannerTab = (tabId: PlannerTabId) => {
+    setActiveTab(tabId);
+    setPreviewTemplateId("");
+  };
+  const switchPlannerGroup = (group: PlannerGroup) => {
+    if (group.tabs.includes(activeTab)) {
+      return;
+    }
+
+    switchPlannerTab(group.tabs[0]);
+  };
 
   return (
     <main className="app">
+      <header className="plannerHeader">
+        <div>
+          <p>Cricket Team Planner</p>
+          <h1>{activePlannerTab.label}</h1>
+        </div>
+        <span>Local coach workspace</span>
+      </header>
+
+      <nav className="plannerNav" aria-label="Cricket team planner navigation">
+        <div className="plannerGroupTabs" role="tablist" aria-label="Planner groups">
+          {PLANNER_GROUPS.map((group) => (
+            <button
+              key={group.id}
+              type="button"
+              className={activePlannerGroup.id === group.id ? "active" : ""}
+              onClick={() => switchPlannerGroup(group)}
+            >
+              {group.label}
+            </button>
+          ))}
+        </div>
+
+        {activeGroupTabs.length > 1 && (
+          <div className="plannerSubTabs" role="tablist" aria-label={`${activePlannerGroup.label} sections`}>
+            {activeGroupTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={activeTab === tab.id ? "active" : ""}
+                onClick={() => switchPlannerTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </nav>
+
+      {activeTab === "overview" && (
+        <section className="plannerOverview">
+          <div className="overviewHero">
+            <p>Shared workspace ready</p>
+            <h2>{teamName || "Team planning hub"}</h2>
+            <span>
+              Local-only for now, shaped for a future Supabase coach/admin login and shared team workspace.
+            </span>
+          </div>
+
+          <div className="overviewGrid">
+            {PLANNER_TABS.filter((tab) => tab.id !== "overview").map((tab) => (
+              <button key={tab.id} className="overviewCard" type="button" onClick={() => switchPlannerTab(tab.id)}>
+                <strong>{tab.label}</strong>
+                <span>{tab.summary}</span>
+              </button>
+            ))}
+          </div>
+
+          <section className="loginRoadmap" aria-label="Future login plan">
+            <h2>Future coach login</h2>
+            <p>
+              Planned for Supabase later: coach/admin accounts, shared team workspaces, and workspace-owned
+              planner data. Player view-only access can stay as a later phase.
+            </p>
+            <div>
+              <span>workspaces</span>
+              <span>workspace_members</span>
+              <span>planner_sections</span>
+              <span>field_formations</span>
+              <span>bowler_plans</span>
+            </div>
+          </section>
+
+          {recentPlannerSections.length > 0 && (
+            <section className="recentSections" aria-label="Recently updated planner sections">
+              <h2>Recently updated</h2>
+              {recentPlannerSections.map((section) => (
+                <button
+                  key={section.sectionId}
+                  type="button"
+                  onClick={() => switchPlannerTab(section.sectionId)}
+                >
+                  <strong>{PLANNER_TABS.find((tab) => tab.id === section.sectionId)?.label}</strong>
+                  <span>{section.title}</span>
+                </button>
+              ))}
+            </section>
+          )}
+        </section>
+      )}
+
+      {templateSectionId && templateSection && (
+        <section className="plannerTemplate" aria-label={`${activePlannerTab.label} planner`}>
+          <div className="templateHeading">
+            <div>
+              <h2>{activePlannerTab.label}</h2>
+              <p>{activePlannerTab.summary}</p>
+            </div>
+            <span>Saved {new Date(templateSection.updatedAt).toLocaleString()}</span>
+          </div>
+
+          <section className="templatePicker" aria-label={`${activePlannerTab.label} coach templates`}>
+            <label>
+              <span>Coach template</span>
+              <select value={previewTemplateId} onChange={(e) => setPreviewTemplateId(e.target.value)}>
+                <option value="">Choose a daily template</option>
+                {availableTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {previewTemplate && (
+              <div className="templatePreview" role="dialog" aria-live="polite">
+                <div className="templatePreviewHeader">
+                  <div>
+                    <h3>{previewTemplate.name}</h3>
+                    <p>{previewTemplate.description}</p>
+                  </div>
+                  <button type="button" onClick={() => setPreviewTemplateId("")}>
+                    Cancel
+                  </button>
+                </div>
+                <div className="previewBlock">
+                  <span>Goals</span>
+                  <p>{previewTemplate.goals}</p>
+                </div>
+                <div className="previewBlock">
+                  <span>Checklist</span>
+                  <ul>
+                    {previewTemplate.checklistItems.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="previewBlock">
+                  <span>Notes</span>
+                  <p>{previewTemplate.notes}</p>
+                </div>
+                <button type="button" className="applyTemplate" onClick={() => applyPlannerTemplate(previewTemplate)}>
+                  Apply Template
+                </button>
+              </div>
+            )}
+          </section>
+
+          <label className="templateField">
+            <span>Title</span>
+            <input
+              value={templateSection.title}
+              onChange={(e) => updatePlannerSection(templateSectionId, { title: e.target.value })}
+            />
+          </label>
+
+          <label className="templateField">
+            <span>Goals / focus</span>
+            <textarea
+              value={templateSection.goals}
+              onChange={(e) => updatePlannerSection(templateSectionId, { goals: e.target.value })}
+              rows={3}
+            />
+          </label>
+
+          <section className="checklistPanel" aria-label={`${activePlannerTab.label} checklist`}>
+            <div className="checklistHeader">
+              <h3>Checklist</h3>
+              <button type="button" onClick={() => addChecklistItem(templateSectionId)}>
+                Add item
+              </button>
+            </div>
+            {templateSection.checklistItems.map((item) => (
+              <div key={item.id} className="checklistItem">
+                <input
+                  type="checkbox"
+                  checked={item.done}
+                  onChange={(e) => updateChecklistItem(templateSectionId, item.id, { done: e.target.checked })}
+                  aria-label={`Complete ${item.text}`}
+                />
+                <input
+                  value={item.text}
+                  onChange={(e) => updateChecklistItem(templateSectionId, item.id, { text: e.target.value })}
+                  aria-label="Checklist item"
+                />
+                <button type="button" onClick={() => removeChecklistItem(templateSectionId, item.id)}>
+                  x
+                </button>
+              </div>
+            ))}
+          </section>
+
+          <label className="templateField">
+            <span>Notes</span>
+            <textarea
+              value={templateSection.notes}
+              onChange={(e) => updatePlannerSection(templateSectionId, { notes: e.target.value })}
+              rows={6}
+              placeholder="Add coaching notes, reminders, player observations, or follow-ups"
+            />
+          </label>
+
+          {templateSectionId === "team" && (
+            <section className="squadPanel" aria-label="Squad roster">
+              <div className="squadHeader">
+                <div>
+                  <h3>Squad</h3>
+                  <p>Add players, their roles, and coaching notes.</p>
+                </div>
+                <button type="button" onClick={addSquadPlayer}>Add player</button>
+              </div>
+
+              {squadPlayers.length === 0 && (
+                <p className="emptySquad">No squad players added yet.</p>
+              )}
+
+              <div className="opponentGrid">
+                {squadPlayers.map((player) => (
+                  <article key={player.id} className="opponentCard">
+                    <div className="opponentCardHeader">
+                      <strong>{player.name.trim() || "New player"}</strong>
+                      <button type="button" onClick={() => removeSquadPlayer(player.id)}>Remove</button>
+                    </div>
+
+                    <label>
+                      <span>Name</span>
+                      <input
+                        value={player.name}
+                        onChange={(e) => updateSquadPlayer(player.id, { name: e.target.value })}
+                        placeholder="Player name"
+                      />
+                    </label>
+
+                    <label>
+                      <span>Role</span>
+                      <select
+                        value={player.role}
+                        onChange={(e) => updateSquadPlayer(player.id, { role: e.target.value })}
+                      >
+                        <option value="">Select role</option>
+                        <option value="Batter">Batter</option>
+                        <option value="Bowler">Bowler</option>
+                        <option value="All-rounder">All-rounder</option>
+                        <option value="Wicket-keeper">Wicket-keeper</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <span>Batting hand</span>
+                      <select
+                        value={player.battingHand}
+                        onChange={(e) => updateSquadPlayer(player.id, { battingHand: e.target.value })}
+                      >
+                        <option value="Right">Right</option>
+                        <option value="Left">Left</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <span>Bowling type</span>
+                      <select
+                        value={player.bowlingType}
+                        onChange={(e) => updateSquadPlayer(player.id, { bowlingType: e.target.value })}
+                      >
+                        <option value="">None / N/A</option>
+                        <option value="Right-arm pace">Right-arm pace</option>
+                        <option value="Left-arm pace">Left-arm pace</option>
+                        <option value="Off-spin">Off-spin</option>
+                        <option value="Leg-spin">Leg-spin</option>
+                        <option value="Left-arm spin">Left-arm spin</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <span>Coaching notes</span>
+                      <textarea
+                        value={player.notes}
+                        onChange={(e) => updateSquadPlayer(player.id, { notes: e.target.value })}
+                        placeholder="Development focus, technical observations, training priorities"
+                        rows={3}
+                      />
+                    </label>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {templateSectionId === "match-notes" && (
+            <section className="opponentPanel" aria-label="Opponent players">
+              <div className="opponentHeader">
+                <div>
+                  <h3>Opponent players</h3>
+                  <p>Add key batters, bowlers, strengths, and the plan for each player.</p>
+                </div>
+                <button type="button" onClick={addOpponentPlayer}>
+                  Add opponent
+                </button>
+              </div>
+
+              {templateSection.opponentPlayers.length === 0 && (
+                <p className="emptyOpponents">No opponent players added yet.</p>
+              )}
+
+              <div className="opponentGrid">
+                {templateSection.opponentPlayers.map((opponent) => (
+                  <article key={opponent.id} className="opponentCard">
+                    <div className="opponentCardHeader">
+                      <strong>{opponent.name.trim() || "Opponent player"}</strong>
+                      <button type="button" onClick={() => removeOpponentPlayer(opponent.id)}>
+                        Remove
+                      </button>
+                    </div>
+                    <label>
+                      <span>Name</span>
+                      <input
+                        value={opponent.name}
+                        onChange={(e) => updateOpponentPlayer(opponent.id, { name: e.target.value })}
+                        placeholder="Player name"
+                      />
+                    </label>
+                    <label>
+                      <span>Role</span>
+                      <input
+                        value={opponent.role}
+                        onChange={(e) => updateOpponentPlayer(opponent.id, { role: e.target.value })}
+                        placeholder="Opening batter, death bowler, leg spinner"
+                      />
+                    </label>
+                    <label>
+                      <span>Strengths</span>
+                      <textarea
+                        value={opponent.strengths}
+                        onChange={(e) => updateOpponentPlayer(opponent.id, { strengths: e.target.value })}
+                        placeholder="Scoring areas, bowling strengths, match impact"
+                        rows={3}
+                      />
+                    </label>
+                    <label>
+                      <span>Plan</span>
+                      <textarea
+                        value={opponent.plan}
+                        onChange={(e) => updateOpponentPlayer(opponent.id, { plan: e.target.value })}
+                        placeholder="Bowling plan, field idea, batting approach, pressure option"
+                        rows={3}
+                      />
+                    </label>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+        </section>
+      )}
+
+      {activeTab === "video-library" && (
+        <section className="videoLibrary" aria-label="Coaching video library">
+          <div className="videoLibraryIntro">
+            <h2>Coaching video library</h2>
+            <p>
+              Open coaching resource links grouped by training category. Use these for ideas, then adapt the
+              activity to your players, space, equipment, and safety needs.
+            </p>
+          </div>
+
+          <div className="videoCategoryGrid">
+            {VIDEO_RESOURCE_CATEGORIES.map((category) => (
+              <article key={category.id} className="videoCategory">
+                <div>
+                  <h3>{category.title}</h3>
+                  <p>{category.description}</p>
+                </div>
+                <div className="resourceLinks">
+                  {category.links.map((link) => (
+                    <a key={`${category.id}-${link.url}-${link.label}`} href={link.url} target="_blank" rel="noreferrer">
+                      <strong>{link.label}</strong>
+                      <small>{link.description}</small>
+                    </a>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {activeTab === "fielding" && (
+        <>
       <header className="topbar">
         <div className="identityFields">
           <label>
@@ -2011,6 +3503,8 @@ export default function App() {
       </footer>
 
       <p className="hint">{title}</p>
+        </>
+      )}
     </main>
   );
 }

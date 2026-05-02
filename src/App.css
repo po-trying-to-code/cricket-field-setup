@@ -22,13 +22,576 @@ textarea {
 .app {
   min-height: 100dvh;
   display: grid;
-  grid-template-rows: auto auto auto auto auto;
   gap: 10px;
   padding: 10px;
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
   overflow-x: hidden;
+}
+
+.plannerHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+  text-align: left;
+}
+
+.plannerHeader p,
+.plannerHeader h1 {
+  margin: 0;
+}
+
+.plannerHeader p {
+  color: #486581;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.plannerHeader h1 {
+  color: #102a43;
+  font-size: 22px;
+  letter-spacing: 0;
+}
+
+.plannerHeader span {
+  border-radius: 999px;
+  background: #e6fffa;
+  color: #044e54;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.plannerNav {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.plannerGroupTabs,
+.plannerSubTabs {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.plannerGroupTabs {
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+}
+
+.plannerSubTabs {
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+}
+
+.plannerGroupTabs button,
+.plannerSubTabs button {
+  min-width: 0;
+  border: 1px solid #bcccdc;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #243b53;
+  padding: 8px 7px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.plannerSubTabs button {
+  border-radius: 999px;
+  background: #f8fafc;
+}
+
+.plannerGroupTabs button.active,
+.plannerSubTabs button.active {
+  border-color: #0f62fe;
+  background: #0f62fe;
+  color: #ffffff;
+}
+
+.plannerOverview,
+.plannerTemplate {
+  display: grid;
+  gap: 10px;
+}
+
+.overviewHero,
+.loginRoadmap,
+.recentSections,
+.plannerTemplate {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+  text-align: left;
+}
+
+.overviewHero p,
+.overviewHero h2,
+.overviewHero span,
+.loginRoadmap h2,
+.loginRoadmap p,
+.recentSections h2,
+.templateHeading h2,
+.templateHeading p,
+.checklistHeader h3 {
+  margin: 0;
+}
+
+.overviewHero p {
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.overviewHero h2,
+.loginRoadmap h2,
+.recentSections h2,
+.templateHeading h2 {
+  color: #102a43;
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.overviewHero span,
+.loginRoadmap p,
+.templateHeading p {
+  display: block;
+  color: #486581;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 5px;
+}
+
+.overviewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+.overviewCard,
+.recentSections button {
+  display: grid;
+  gap: 5px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #102a43;
+  padding: 10px;
+  text-align: left;
+}
+
+.overviewCard strong,
+.recentSections strong {
+  color: #102a43;
+  font-size: 14px;
+}
+
+.overviewCard span,
+.recentSections span {
+  color: #486581;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.loginRoadmap div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.loginRoadmap span {
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4c1d95;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.recentSections {
+  display: grid;
+  gap: 8px;
+}
+
+.videoLibrary {
+  display: grid;
+  gap: 10px;
+}
+
+.videoLibraryIntro,
+.videoCategory {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+  text-align: left;
+}
+
+.videoLibraryIntro h2,
+.videoLibraryIntro p,
+.videoCategory h3,
+.videoCategory p {
+  margin: 0;
+}
+
+.videoLibraryIntro h2,
+.videoCategory h3 {
+  color: #102a43;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.videoLibraryIntro p,
+.videoCategory p {
+  color: #486581;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 5px;
+}
+
+.videoCategoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.videoCategory {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+}
+
+.templateHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.templateHeading span {
+  color: #486581;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.templateField {
+  display: grid;
+  gap: 5px;
+  text-align: left;
+}
+
+.templatePicker {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.templatePicker label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  text-align: left;
+}
+
+.templateField span {
+  color: #486581;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.templatePicker label span {
+  color: #486581;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.templateField input,
+.templateField textarea,
+.templatePicker select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #102a43;
+  padding: 9px 10px;
+  font-size: 16px;
+}
+
+.templatePreview {
+  display: grid;
+  gap: 9px;
+  border: 1px solid #bcccdc;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.templatePreviewHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.templatePreviewHeader h3,
+.templatePreviewHeader p,
+.previewBlock p,
+.previewBlock ul {
+  margin: 0;
+}
+
+.templatePreviewHeader h3 {
+  color: #102a43;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.templatePreviewHeader p,
+.previewBlock p,
+.previewBlock li {
+  color: #486581;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.templatePreviewHeader button,
+.applyTemplate {
+  border: 0;
+  border-radius: 8px;
+  background: #829ab1;
+  color: #ffffff;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.previewBlock {
+  display: grid;
+  gap: 4px;
+}
+
+.previewBlock span {
+  color: #102a43;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.previewBlock ul {
+  padding-left: 18px;
+}
+
+.applyTemplate {
+  justify-self: start;
+  background: #0f62fe;
+}
+
+.opponentPanel {
+  display: grid;
+  gap: 9px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.opponentHeader h3,
+.opponentHeader p,
+.emptyOpponents {
+  margin: 0;
+}
+
+.opponentHeader h3 {
+  color: #102a43;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.opponentHeader p,
+.emptyOpponents {
+  color: #486581;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.resourceLinks {
+  display: grid;
+  gap: 7px;
+}
+
+.resourceLinks > span {
+  color: #102a43;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.resourceLinks a {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #bcccdc;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0b3d91;
+  padding: 8px;
+  text-decoration: none;
+}
+
+.resourceLinks strong {
+  font-size: 13px;
+}
+
+.resourceLinks small {
+  color: #486581;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.opponentHeader,
+.opponentCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.opponentHeader button,
+.opponentCardHeader button {
+  border: 0;
+  border-radius: 8px;
+  background: #0f62fe;
+  color: #ffffff;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.opponentGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.opponentCard {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #bcccdc;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 9px;
+}
+
+.opponentCardHeader strong {
+  color: #102a43;
+  font-size: 14px;
+}
+
+.opponentCardHeader button {
+  background: #829ab1;
+}
+
+.opponentCard label {
+  display: grid;
+  gap: 4px;
+}
+
+.opponentCard span {
+  color: #486581;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.opponentCard input,
+.opponentCard textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #102a43;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.checklistPanel {
+  display: grid;
+  gap: 7px;
+}
+
+.checklistHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.checklistHeader h3 {
+  color: #102a43;
+  font-size: 16px;
+}
+
+.checklistHeader button,
+.checklistItem button {
+  border: 0;
+  border-radius: 8px;
+  background: #0f62fe;
+  color: #ffffff;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.checklistItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 7px;
+}
+
+.checklistItem input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #0f62fe;
+}
+
+.checklistItem input[type="text"],
+.checklistItem input:not([type]) {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  padding: 8px;
+  color: #102a43;
+  background: #ffffff;
+  font-size: 14px;
+}
+
+.checklistItem button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: #829ab1;
 }
 
 .topbar {
@@ -844,4 +1407,61 @@ textarea {
   margin: 0;
   font-size: 13px;
   color: #486581;
+}
+
+.opponentCard select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #102a43;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.squadPanel {
+  display: grid;
+  gap: 9px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.squadHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.squadHeader h3,
+.squadHeader p,
+.emptySquad {
+  margin: 0;
+}
+
+.squadHeader h3 {
+  color: #102a43;
+  font-size: 16px;
+}
+
+.squadHeader p,
+.emptySquad {
+  color: #486581;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.squadHeader button {
+  border: 0;
+  border-radius: 8px;
+  background: #0f62fe;
+  color: #ffffff;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
 }
