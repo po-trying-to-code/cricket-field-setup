@@ -1,0 +1,48 @@
+.videoLibrary {
+  display: grid;
+  gap: 10px;
+}
+
+.videoLibraryIntro,
+.videoCategory {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+  text-align: left;
+}
+
+.videoLibraryIntro h2,
+.videoLibraryIntro p,
+.videoCategory h3,
+.videoCategory p {
+  margin: 0;
+}
+
+.videoLibraryIntro h2,
+.videoCategory h3 {
+  color: #102a43;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.videoLibraryIntro p,
+.videoCategory p {
+  color: #486581;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 5px;
+}
+
+.videoCategoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.videoCategory {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+}

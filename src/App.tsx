@@ -57,8 +57,9 @@ type PlannerTabId =
   | "team"
   | "video-library"
   | "fielding"
-  | "match-notes";
-type PlannerSectionId = Exclude<PlannerTabId, "overview" | "fielding" | "video-library">;
+  | "match-notes"
+  | "scoring";
+type PlannerSectionId = Exclude<PlannerTabId, "overview" | "fielding" | "video-library" | "scoring">;
 
 type ChecklistItem = {
   id: string;
@@ -87,6 +88,100 @@ type SquadPlayer = {
   battingHand: string;
   bowlingType: string;
   notes: string;
+};
+
+type ScoringZone = { x: number; y: number; label: string };
+
+type Delivery = {
+  id: string;
+  ballInOver: number;
+  batsmanName: string;
+  bowlerName: string;
+  runs: number;
+  isBoundary: boolean;
+  boundaryType?: "4" | "6";
+  scoringZone?: ScoringZone;
+  isExtra: boolean;
+  extraType?: "wide" | "no-ball" | "bye" | "leg-bye";
+  extraRuns: number;
+  isWicket: boolean;
+  dismissalType?: string;
+  fielderName?: string;
+};
+
+type MatchOver = {
+  id: string;
+  overNumber: number;
+  bowlerName: string;
+  deliveries: Delivery[];
+};
+
+type BatsmanStats = {
+  name: string;
+  runs: number;
+  balls: number;
+  fours: number;
+  sixes: number;
+  isOut: boolean;
+  dismissalType?: string;
+  bowlerName?: string;
+  scoringZones: ScoringZone[];
+  battingOrder: number;
+};
+
+type BowlerStats = {
+  name: string;
+  overs: number;
+  partialBalls: number;
+  maidens: number;
+  runs: number;
+  wickets: number;
+  scoringZones: ScoringZone[];
+};
+
+type MatchInnings = {
+  id: string;
+  battingTeam: string;
+  overs: MatchOver[];
+  batsmen: BatsmanStats[];
+  bowlers: BowlerStats[];
+  currentBatsmen: [string, string];
+  currentBowler: string;
+  extras: { wides: number; noBalls: number; byes: number; legByes: number };
+  isCompleted: boolean;
+};
+
+type MatchScore = {
+  id: string;
+  date: string;
+  venue: string;
+  format: string;
+  maxOvers: number;
+  teamA: string;
+  teamB: string;
+  teamAPlayers: string[];
+  teamBPlayers: string[];
+  tossWinner: string;
+  tossDecision: "bat" | "field";
+  innings: MatchInnings[];
+  result: string;
+  isCompleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ScoringViewId = "list" | "setup" | "live" | "scorecard" | "analysis";
+
+type PendingDelivery = {
+  runs: number;
+  isBoundary: boolean;
+  boundaryType?: "4" | "6";
+  isExtra: boolean;
+  extraType?: "wide" | "no-ball" | "bye" | "leg-bye";
+  extraRuns: number;
+  isWicket: boolean;
+  dismissalType?: string;
+  fielderName?: string;
 };
 
 type PlannerSection = {
@@ -329,6 +424,7 @@ const SAVED_FORMATIONS_KEY = "cricket-field-saved-formations-v1";
 const BOWLER_PLANS_KEY = "cricket-field-bowler-plans-v1";
 const PLANNER_SECTIONS_KEY = "cricket-team-planner-sections-v1";
 const SQUAD_PLAYERS_KEY = "cricket-squad-players-v1";
+const MATCH_SCORES_KEY = "cricket-match-scores-v1";
 const LOCAL_WORKSPACE_ID = "local-workspace";
 const LOCAL_USER_ID = "local-coach";
 const MAX_POSITIONS = 11;
@@ -375,6 +471,11 @@ const PLANNER_TABS: PlannerTab[] = [
     label: "Match Notes",
     summary: "Match plans, observations, and post-game review notes.",
   },
+  {
+    id: "scoring",
+    label: "Scoring",
+    summary: "Live ball-by-ball scoring with boundary zone capture and analysis.",
+  },
 ];
 
 const PLANNER_GROUPS: PlannerGroup[] = [
@@ -401,7 +502,7 @@ const PLANNER_GROUPS: PlannerGroup[] = [
   {
     id: "match-planning",
     label: "Match Planning",
-    tabs: ["fielding", "match-notes"],
+    tabs: ["fielding", "match-notes", "scoring"],
   },
 ];
 
@@ -1052,6 +1153,9 @@ const createId = (name: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
+let _idSeq = 0;
+const genId = (prefix = "id") => `${prefix}-${Date.now()}-${++_idSeq}`;
+
 const getFieldPosition = (
   position: FieldPosition,
   isLeftHander: boolean,
@@ -1231,6 +1335,139 @@ const normalizeSquadPlayer = (data: unknown): SquadPlayer | null => {
   };
 };
 
+const normalizeDelivery = (d: unknown): Delivery | null => {
+  if (!d || typeof d !== "object") return null;
+  const x = d as Record<string, unknown>;
+  if (typeof x.id !== "string") return null;
+  return {
+    id: x.id,
+    ballInOver: typeof x.ballInOver === "number" ? x.ballInOver : 0,
+    batsmanName: typeof x.batsmanName === "string" ? x.batsmanName : "",
+    bowlerName: typeof x.bowlerName === "string" ? x.bowlerName : "",
+    runs: typeof x.runs === "number" ? x.runs : 0,
+    isBoundary: x.isBoundary === true,
+    boundaryType: x.boundaryType === "4" || x.boundaryType === "6" ? x.boundaryType : undefined,
+    scoringZone:
+      x.scoringZone && typeof x.scoringZone === "object"
+        ? (x.scoringZone as ScoringZone)
+        : undefined,
+    isExtra: x.isExtra === true,
+    extraType:
+      x.extraType === "wide" || x.extraType === "no-ball" || x.extraType === "bye" || x.extraType === "leg-bye"
+        ? x.extraType
+        : undefined,
+    extraRuns: typeof x.extraRuns === "number" ? x.extraRuns : 0,
+    isWicket: x.isWicket === true,
+    dismissalType: typeof x.dismissalType === "string" ? x.dismissalType : undefined,
+    fielderName: typeof x.fielderName === "string" ? x.fielderName : undefined,
+  };
+};
+
+const normalizeMatchOver = (o: unknown): MatchOver | null => {
+  if (!o || typeof o !== "object") return null;
+  const x = o as Record<string, unknown>;
+  if (typeof x.id !== "string") return null;
+  return {
+    id: x.id,
+    overNumber: typeof x.overNumber === "number" ? x.overNumber : 0,
+    bowlerName: typeof x.bowlerName === "string" ? x.bowlerName : "",
+    deliveries: Array.isArray(x.deliveries)
+      ? x.deliveries.map(normalizeDelivery).filter((d): d is Delivery => d !== null)
+      : [],
+  };
+};
+
+const normalizeBatsman = (b: unknown): BatsmanStats | null => {
+  if (!b || typeof b !== "object") return null;
+  const x = b as Record<string, unknown>;
+  if (typeof x.name !== "string") return null;
+  return {
+    name: x.name,
+    runs: typeof x.runs === "number" ? x.runs : 0,
+    balls: typeof x.balls === "number" ? x.balls : 0,
+    fours: typeof x.fours === "number" ? x.fours : 0,
+    sixes: typeof x.sixes === "number" ? x.sixes : 0,
+    isOut: x.isOut === true,
+    dismissalType: typeof x.dismissalType === "string" ? x.dismissalType : undefined,
+    bowlerName: typeof x.bowlerName === "string" ? x.bowlerName : undefined,
+    scoringZones: Array.isArray(x.scoringZones) ? (x.scoringZones as ScoringZone[]) : [],
+    battingOrder: typeof x.battingOrder === "number" ? x.battingOrder : 0,
+  };
+};
+
+const normalizeBowler = (b: unknown): BowlerStats | null => {
+  if (!b || typeof b !== "object") return null;
+  const x = b as Record<string, unknown>;
+  if (typeof x.name !== "string") return null;
+  return {
+    name: x.name,
+    overs: typeof x.overs === "number" ? x.overs : 0,
+    partialBalls: typeof x.partialBalls === "number" ? x.partialBalls : 0,
+    maidens: typeof x.maidens === "number" ? x.maidens : 0,
+    runs: typeof x.runs === "number" ? x.runs : 0,
+    wickets: typeof x.wickets === "number" ? x.wickets : 0,
+    scoringZones: Array.isArray(x.scoringZones) ? (x.scoringZones as ScoringZone[]) : [],
+  };
+};
+
+const normalizeInnings = (i: unknown): MatchInnings | null => {
+  if (!i || typeof i !== "object") return null;
+  const x = i as Record<string, unknown>;
+  if (typeof x.id !== "string") return null;
+  const cb = Array.isArray(x.currentBatsmen) ? x.currentBatsmen : ["", ""];
+  return {
+    id: x.id,
+    battingTeam: typeof x.battingTeam === "string" ? x.battingTeam : "",
+    overs: Array.isArray(x.overs)
+      ? x.overs.map(normalizeMatchOver).filter((o): o is MatchOver => o !== null)
+      : [],
+    batsmen: Array.isArray(x.batsmen)
+      ? x.batsmen.map(normalizeBatsman).filter((b): b is BatsmanStats => b !== null)
+      : [],
+    bowlers: Array.isArray(x.bowlers)
+      ? x.bowlers.map(normalizeBowler).filter((b): b is BowlerStats => b !== null)
+      : [],
+    currentBatsmen: [
+      typeof cb[0] === "string" ? cb[0] : "",
+      typeof cb[1] === "string" ? cb[1] : "",
+    ],
+    currentBowler: typeof x.currentBowler === "string" ? x.currentBowler : "",
+    extras: {
+      wides: typeof (x.extras as Record<string, unknown>)?.wides === "number" ? (x.extras as Record<string, unknown>).wides as number : 0,
+      noBalls: typeof (x.extras as Record<string, unknown>)?.noBalls === "number" ? (x.extras as Record<string, unknown>).noBalls as number : 0,
+      byes: typeof (x.extras as Record<string, unknown>)?.byes === "number" ? (x.extras as Record<string, unknown>).byes as number : 0,
+      legByes: typeof (x.extras as Record<string, unknown>)?.legByes === "number" ? (x.extras as Record<string, unknown>).legByes as number : 0,
+    },
+    isCompleted: x.isCompleted === true,
+  };
+};
+
+const normalizeMatchScore = (data: unknown): MatchScore | null => {
+  if (!data || typeof data !== "object") return null;
+  const x = data as Record<string, unknown>;
+  if (typeof x.id !== "string" || typeof x.teamA !== "string" || typeof x.teamB !== "string") return null;
+  return {
+    id: x.id,
+    date: typeof x.date === "string" ? x.date : "",
+    venue: typeof x.venue === "string" ? x.venue : "",
+    format: typeof x.format === "string" ? x.format : "T20",
+    maxOvers: typeof x.maxOvers === "number" ? x.maxOvers : 20,
+    teamA: x.teamA,
+    teamB: x.teamB,
+    teamAPlayers: Array.isArray(x.teamAPlayers) ? (x.teamAPlayers as string[]) : [],
+    teamBPlayers: Array.isArray(x.teamBPlayers) ? (x.teamBPlayers as string[]) : [],
+    tossWinner: typeof x.tossWinner === "string" ? x.tossWinner : "",
+    tossDecision: x.tossDecision === "field" ? "field" : "bat",
+    innings: Array.isArray(x.innings)
+      ? x.innings.map(normalizeInnings).filter((i): i is MatchInnings => i !== null)
+      : [],
+    result: typeof x.result === "string" ? x.result : "",
+    isCompleted: x.isCompleted === true,
+    createdAt: typeof x.createdAt === "string" ? x.createdAt : new Date().toISOString(),
+    updatedAt: typeof x.updatedAt === "string" ? x.updatedAt : new Date().toISOString(),
+  };
+};
+
 const isPlannerTemplateTab = (
   sectionId: PlannerTabId,
 ): sectionId is PlannerSectionId =>
@@ -1336,6 +1573,28 @@ export default function App() {
   const [savedFormations, setSavedFormations] = useState<SavedFormation[]>([]);
   const [bowlerPlans, setBowlerPlans] = useState<BowlerPlan[]>([]);
   const [squadPlayers, setSquadPlayers] = useState<SquadPlayer[]>([]);
+  const [matchScores, setMatchScores] = useState<MatchScore[]>([]);
+  const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
+  const [scoringView, setScoringView] = useState<ScoringViewId>("list");
+  const [zonePickerOpen, setZonePickerOpen] = useState(false);
+  const [pendingDelivery, setPendingDelivery] = useState<PendingDelivery | null>(null);
+  const [matchSetupForm, setMatchSetupForm] = useState({
+    teamA: "",
+    teamB: "",
+    format: "T20",
+    maxOvers: 20,
+    venue: "",
+    tossWinner: "A",
+    tossDecision: "bat" as "bat" | "field",
+    teamAPlayers: "",
+    teamBPlayers: "",
+  });
+  const [rosterPickerOpen, setRosterPickerOpen] = useState(false);
+  const [analysisBatsman, setAnalysisBatsman] = useState("");
+  const [analysisBowler, setAnalysisBowler] = useState("");
+  const [analysisMode, setAnalysisMode] = useState<"batsman" | "bowler">("batsman");
+  const [scorecardInningsIdx, setScorecardInningsIdx] = useState(0);
+  const [allMatchesAnalysis, setAllMatchesAnalysis] = useState(false);
   const [activeFormationId, setActiveFormationId] = useState("");
   const [formationName, setFormationName] = useState("My Formation");
   const [teamName, setTeamName] = useState("");
@@ -1422,6 +1681,21 @@ export default function App() {
         }
       } catch {
         localStorage.removeItem(SQUAD_PLAYERS_KEY);
+      }
+    }
+
+    const scoresRaw = localStorage.getItem(MATCH_SCORES_KEY);
+    if (scoresRaw) {
+      try {
+        const parsed = JSON.parse(scoresRaw);
+        if (Array.isArray(parsed)) {
+          const scores = parsed
+            .map((item) => normalizeMatchScore(item))
+            .filter((item): item is MatchScore => Boolean(item));
+          setMatchScores(scores);
+        }
+      } catch {
+        localStorage.removeItem(MATCH_SCORES_KEY);
       }
     }
 
@@ -1560,6 +1834,367 @@ export default function App() {
   const removeSquadPlayer = (id: string) => {
     persistSquadPlayers(squadPlayers.filter((p) => p.id !== id));
   };
+
+  // ── Scoring engine ────────────────────────────────────────────────────────
+
+  const persistMatchScores = (next: MatchScore[]) => {
+    localStorage.setItem(MATCH_SCORES_KEY, JSON.stringify(next));
+    setMatchScores(next);
+  };
+
+  const activeMatch = useMemo(
+    () => matchScores.find((m) => m.id === activeMatchId) ?? null,
+    [matchScores, activeMatchId],
+  );
+  const activeInnings = useMemo(
+    () => activeMatch?.innings.find((i) => !i.isCompleted) ?? null,
+    [activeMatch],
+  );
+  const activeInningsIdx = useMemo(
+    () => activeMatch?.innings.findIndex((i) => !i.isCompleted) ?? -1,
+    [activeMatch],
+  );
+  const currentOver = useMemo(
+    () => (activeInnings ? activeInnings.overs[activeInnings.overs.length - 1] ?? null : null),
+    [activeInnings],
+  );
+
+  const knownOpponentRosters = useMemo(() => {
+    const seen = new Map<string, string[]>();
+    [...matchScores].reverse().forEach((m) => {
+      if (!seen.has(m.teamB)) seen.set(m.teamB, m.teamBPlayers);
+    });
+    return Array.from(seen.entries()).map(([name, players]) => ({ name, players }));
+  }, [matchScores]);
+
+  const inningsTotals = (inn: MatchInnings) => {
+    const allDeliveries = inn.overs.flatMap((o) => o.deliveries);
+    const runs =
+      allDeliveries.reduce((s, d) => s + d.runs + d.extraRuns, 0);
+    const wickets = allDeliveries.filter((d) => d.isWicket).length;
+    const legalBalls = allDeliveries.filter((d) => !d.isExtra || d.extraType === "bye" || d.extraType === "leg-bye").length;
+    const overs = Math.floor(legalBalls / 6);
+    const balls = legalBalls % 6;
+    return { runs, wickets, oversStr: balls === 0 ? `${overs}` : `${overs}.${balls}` };
+  };
+
+  const createMatch = () => {
+    const battingFirst =
+      matchSetupForm.tossWinner === "A"
+        ? matchSetupForm.tossDecision === "bat"
+          ? matchSetupForm.teamA
+          : matchSetupForm.teamB
+        : matchSetupForm.tossDecision === "bat"
+          ? matchSetupForm.teamB
+          : matchSetupForm.teamA;
+
+    const firstInnings: MatchInnings = {
+      id: genId('inn'),
+      battingTeam: battingFirst,
+      overs: [],
+      batsmen: [],
+      bowlers: [],
+      currentBatsmen: ["", ""],
+      currentBowler: "",
+      extras: { wides: 0, noBalls: 0, byes: 0, legByes: 0 },
+      isCompleted: false,
+    };
+
+    const newMatch: MatchScore = {
+      id: genId('match'),
+      date: new Date().toISOString().slice(0, 10),
+      venue: matchSetupForm.venue,
+      format: matchSetupForm.format,
+      maxOvers: matchSetupForm.maxOvers,
+      teamA: matchSetupForm.teamA || "Team A",
+      teamB: matchSetupForm.teamB || "Team B",
+      teamAPlayers: matchSetupForm.teamAPlayers
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      teamBPlayers: matchSetupForm.teamBPlayers
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      tossWinner: matchSetupForm.tossWinner === "A" ? matchSetupForm.teamA : matchSetupForm.teamB,
+      tossDecision: matchSetupForm.tossDecision,
+      innings: [firstInnings],
+      result: "",
+      isCompleted: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const next = [newMatch, ...matchScores];
+    persistMatchScores(next);
+    setActiveMatchId(newMatch.id);
+    setScoringView("live");
+  };
+
+  const deleteMatch = (id: string) => {
+    persistMatchScores(matchScores.filter((m) => m.id !== id));
+    if (activeMatchId === id) setActiveMatchId(null);
+  };
+
+  const updateActiveMatch = (updater: (m: MatchScore) => MatchScore) => {
+    if (!activeMatchId) return;
+    const next = matchScores.map((m) => (m.id === activeMatchId ? updater(m) : m));
+    persistMatchScores(next);
+  };
+
+  const commitDelivery = (pd: PendingDelivery, zone?: ScoringZone) => {
+    if (!activeMatch || activeInningsIdx < 0) return;
+
+    const inn = activeMatch.innings[activeInningsIdx];
+    const delivery: Delivery = {
+      id: genId('del'),
+      ballInOver: (currentOver?.deliveries.length ?? 0) + 1,
+      batsmanName: inn.currentBatsmen[0],
+      bowlerName: inn.currentBowler,
+      runs: pd.runs,
+      isBoundary: pd.isBoundary,
+      boundaryType: pd.boundaryType,
+      scoringZone: zone,
+      isExtra: pd.isExtra,
+      extraType: pd.extraType,
+      extraRuns: pd.extraRuns,
+      isWicket: pd.isWicket,
+      dismissalType: pd.dismissalType,
+      fielderName: pd.fielderName,
+    };
+
+    updateActiveMatch((m) => {
+      const innings = m.innings.map((inn, idx) => {
+        if (idx !== activeInningsIdx) return inn;
+
+        // Update overs — add to current or create new
+        const isLegal = !pd.isExtra || pd.extraType === "bye" || pd.extraType === "leg-bye";
+        let overs = [...inn.overs];
+        if (overs.length === 0 || (currentOver && currentOver.deliveries.filter((d) => !d.isExtra || d.extraType === "bye" || d.extraType === "leg-bye").length >= 6)) {
+          overs = [
+            ...overs,
+            {
+              id: genId('over'),
+              overNumber: overs.length + 1,
+              bowlerName: inn.currentBowler,
+              deliveries: [delivery],
+            },
+          ];
+        } else {
+          overs = overs.map((o, i) =>
+            i === overs.length - 1 ? { ...o, deliveries: [...o.deliveries, delivery] } : o,
+          );
+        }
+
+        // Update batsman stats
+        let batsmen = [...inn.batsmen];
+        const bIdx = batsmen.findIndex((b) => b.name === delivery.batsmanName);
+        if (bIdx >= 0) {
+          const b = { ...batsmen[bIdx] };
+          if (!pd.isExtra) b.balls += 1;
+          b.runs += pd.runs;
+          if (pd.boundaryType === "4") b.fours += 1;
+          if (pd.boundaryType === "6") b.sixes += 1;
+          if (zone) b.scoringZones = [...b.scoringZones, zone];
+          if (pd.isWicket) {
+            b.isOut = true;
+            b.dismissalType = pd.dismissalType;
+            b.bowlerName = inn.currentBowler;
+          }
+          batsmen[bIdx] = b;
+        } else if (delivery.batsmanName) {
+          batsmen = [
+            ...batsmen,
+            {
+              name: delivery.batsmanName,
+              runs: pd.runs,
+              balls: pd.isExtra ? 0 : 1,
+              fours: pd.boundaryType === "4" ? 1 : 0,
+              sixes: pd.boundaryType === "6" ? 1 : 0,
+              isOut: pd.isWicket,
+              dismissalType: pd.isWicket ? pd.dismissalType : undefined,
+              bowlerName: pd.isWicket ? inn.currentBowler : undefined,
+              scoringZones: zone ? [zone] : [],
+              battingOrder: batsmen.length + 1,
+            },
+          ];
+        }
+
+        // Update bowler stats
+        let bowlers = [...inn.bowlers];
+        const wIdx = bowlers.findIndex((b) => b.name === inn.currentBowler);
+        if (wIdx >= 0) {
+          const w = { ...bowlers[wIdx] };
+          if (isLegal) {
+            w.partialBalls = (w.partialBalls + 1) % 6;
+            if (w.partialBalls === 0) w.overs += 1;
+          }
+          w.runs += pd.runs + pd.extraRuns;
+          if (pd.isWicket && pd.dismissalType !== "run-out") w.wickets += 1;
+          if (zone) w.scoringZones = [...w.scoringZones, zone];
+          bowlers[wIdx] = w;
+        } else if (inn.currentBowler) {
+          bowlers = [
+            ...bowlers,
+            {
+              name: inn.currentBowler,
+              overs: isLegal && (overs[overs.length - 1]?.deliveries.filter((d) => !d.isExtra || d.extraType === "bye" || d.extraType === "leg-bye").length ?? 0) % 6 === 0 ? 1 : 0,
+              partialBalls: isLegal ? 1 : 0,
+              maidens: 0,
+              runs: pd.runs + pd.extraRuns,
+              wickets: pd.isWicket && pd.dismissalType !== "run-out" ? 1 : 0,
+              scoringZones: zone ? [zone] : [],
+            },
+          ];
+        }
+
+        // Update extras
+        const extras = { ...inn.extras };
+        if (pd.extraType === "wide") extras.wides += pd.extraRuns;
+        if (pd.extraType === "no-ball") extras.noBalls += pd.extraRuns;
+        if (pd.extraType === "bye") extras.byes += pd.extraRuns;
+        if (pd.extraType === "leg-bye") extras.legByes += pd.extraRuns;
+
+        // Rotate strike on odd runs (not on wide)
+        let currentBatsmen = [...inn.currentBatsmen] as [string, string];
+        if (!pd.isExtra || pd.extraType !== "wide") {
+          if (pd.runs % 2 === 1) {
+            currentBatsmen = [currentBatsmen[1], currentBatsmen[0]];
+          }
+        }
+        // Rotate at end of over (legal ball count = 6)
+        const newLegalCount = overs[overs.length - 1]?.deliveries.filter((d) => !d.isExtra || d.extraType === "bye" || d.extraType === "leg-bye").length ?? 0;
+        if (isLegal && newLegalCount === 6) {
+          currentBatsmen = [currentBatsmen[1], currentBatsmen[0]];
+        }
+
+        return { ...inn, overs, batsmen, bowlers, extras, currentBatsmen };
+      });
+
+      return { ...m, innings, updatedAt: new Date().toISOString() };
+    });
+
+    setPendingDelivery(null);
+    setZonePickerOpen(false);
+  };
+
+  const openZonePicker = (pd: PendingDelivery) => {
+    setPendingDelivery(pd);
+    setZonePickerOpen(true);
+  };
+
+  const confirmZone = (zone: ScoringZone) => {
+    if (pendingDelivery) commitDelivery(pendingDelivery, zone);
+  };
+
+  const skipZone = () => {
+    if (pendingDelivery) commitDelivery(pendingDelivery);
+  };
+
+  const rotateStrike = () => {
+    if (!activeMatch || activeInningsIdx < 0) return;
+    updateActiveMatch((m) => {
+      const innings = m.innings.map((inn, idx) => {
+        if (idx !== activeInningsIdx) return inn;
+        const [a, b] = inn.currentBatsmen;
+        return { ...inn, currentBatsmen: [b, a] as [string, string] };
+      });
+      return { ...m, innings };
+    });
+  };
+
+  const undoLastDelivery = () => {
+    if (!activeMatch || activeInningsIdx < 0 || !activeInnings) return;
+    const inn = activeInnings;
+    if (inn.overs.length === 0) return;
+    const lastOver = inn.overs[inn.overs.length - 1];
+    if (lastOver.deliveries.length === 0) return;
+    const removed = lastOver.deliveries[lastOver.deliveries.length - 1];
+
+    updateActiveMatch((m) => {
+      const innings = m.innings.map((inn, idx) => {
+        if (idx !== activeInningsIdx) return inn;
+        let overs = inn.overs.map((o, i) =>
+          i === inn.overs.length - 1
+            ? { ...o, deliveries: o.deliveries.slice(0, -1) }
+            : o,
+        );
+        if (overs[overs.length - 1]?.deliveries.length === 0) {
+          overs = overs.slice(0, -1);
+        }
+
+        // Reverse batsman stats
+        const batsmen = inn.batsmen.map((b) => {
+          if (b.name !== removed.batsmanName) return b;
+          const updated = { ...b };
+          updated.runs -= removed.runs;
+          if (!removed.isExtra) updated.balls = Math.max(0, updated.balls - 1);
+          if (removed.boundaryType === "4") updated.fours = Math.max(0, updated.fours - 1);
+          if (removed.boundaryType === "6") updated.sixes = Math.max(0, updated.sixes - 1);
+          if (removed.isWicket) { updated.isOut = false; updated.dismissalType = undefined; updated.bowlerName = undefined; }
+          if (removed.scoringZone) updated.scoringZones = updated.scoringZones.slice(0, -1);
+          return updated;
+        });
+
+        // Reverse bowler stats
+        const isLegal = !removed.isExtra || removed.extraType === "bye" || removed.extraType === "leg-bye";
+        const bowlers = inn.bowlers.map((w) => {
+          if (w.name !== removed.bowlerName) return w;
+          const updated = { ...w };
+          updated.runs -= removed.runs + removed.extraRuns;
+          if (removed.isWicket && removed.dismissalType !== "run-out") updated.wickets = Math.max(0, updated.wickets - 1);
+          if (isLegal) {
+            if (updated.partialBalls === 0) { updated.overs = Math.max(0, updated.overs - 1); updated.partialBalls = 5; }
+            else updated.partialBalls = Math.max(0, updated.partialBalls - 1);
+          }
+          if (removed.scoringZone) updated.scoringZones = updated.scoringZones.slice(0, -1);
+          return updated;
+        });
+
+        return { ...inn, overs, batsmen, bowlers };
+      });
+      return { ...m, innings, updatedAt: new Date().toISOString() };
+    });
+  };
+
+  const completeInnings = () => {
+    if (!activeMatch || activeInningsIdx < 0) return;
+    updateActiveMatch((m) => {
+      const innings = m.innings.map((inn, idx) =>
+        idx === activeInningsIdx ? { ...inn, isCompleted: true } : inn,
+      );
+      // If this was the first innings, create the second
+      if (activeInningsIdx === 0) {
+        const battingSecond = m.innings[0].battingTeam === m.teamA ? m.teamB : m.teamA;
+        const secondInnings: MatchInnings = {
+          id: genId('inn'),
+          battingTeam: battingSecond,
+          overs: [],
+          batsmen: [],
+          bowlers: [],
+          currentBatsmen: ["", ""],
+          currentBowler: "",
+          extras: { wides: 0, noBalls: 0, byes: 0, legByes: 0 },
+          isCompleted: false,
+        };
+        return { ...m, innings: [...innings, secondInnings], updatedAt: new Date().toISOString() };
+      }
+      return { ...m, innings, updatedAt: new Date().toISOString() };
+    });
+  };
+
+  const endMatch = (result: string) => {
+    if (!activeMatch) return;
+    updateActiveMatch((m) => ({
+      ...m,
+      result,
+      isCompleted: true,
+      innings: m.innings.map((inn) => ({ ...inn, isCompleted: true })),
+      updatedAt: new Date().toISOString(),
+    }));
+    setScoringView("scorecard");
+  };
+
+  // ── end Scoring engine ────────────────────────────────────────────────────
 
   const persistPlannerSections = (next: Record<string, PlannerSection>) => {
     localStorage.setItem(PLANNER_SECTIONS_KEY, JSON.stringify(Object.values(next)));
@@ -3505,6 +4140,867 @@ export default function App() {
       <p className="hint">{title}</p>
         </>
       )}
+
+      {activeTab === "scoring" && (() => {
+        // ── Zone coordinates (% from centre, top=away) ──────────────────────
+        const ZONES: ScoringZone[] = [
+          { x: 50, y: 92, label: "Fine Leg" },
+          { x: 22, y: 80, label: "Square Leg" },
+          { x: 12, y: 55, label: "Mid-Wicket" },
+          { x: 25, y: 22, label: "Mid-On" },
+          { x: 75, y: 22, label: "Mid-Off" },
+          { x: 88, y: 55, label: "Cover" },
+          { x: 80, y: 72, label: "Point" },
+          { x: 63, y: 88, label: "Third Man" },
+          { x: 38, y: 12, label: "Long-On" },
+          { x: 62, y: 12, label: "Long-Off" },
+          { x: 8, y: 35, label: "Deep Mid-Wkt" },
+          { x: 92, y: 35, label: "Extra Cover" },
+        ];
+
+        const dotColor = (d: Delivery) => {
+          if (d.boundaryType === "6") return "#fbbf24";
+          if (d.boundaryType === "4") return "#22c55e";
+          if (d.isWicket) return "#ef4444";
+          if (d.isExtra) return "#f59e0b";
+          if (d.runs > 0) return "#94a3b8";
+          return "#475569";
+        };
+
+        const chipLabel = (d: Delivery) => {
+          if (d.isWicket) return "W";
+          if (d.extraType === "wide") return "Wd";
+          if (d.extraType === "no-ball") return "Nb";
+          if (d.extraType === "bye") return "B";
+          if (d.extraType === "leg-bye") return "Lb";
+          if (d.runs === 0) return "•";
+          return String(d.runs + d.extraRuns || d.runs);
+        };
+
+        const sr = (runs: number, balls: number) =>
+          balls === 0 ? "-" : ((runs / balls) * 100).toFixed(0);
+        const econ = (runs: number, overs: number, partial: number) => {
+          const total = overs + partial / 6;
+          return total === 0 ? "-" : (runs / total).toFixed(1);
+        };
+
+        const dismissalLabel = (b: BatsmanStats) => {
+          if (!b.isOut) return "not out";
+          const t = b.dismissalType;
+          if (t === "bowled") return `b ${b.bowlerName ?? ""}`;
+          if (t === "caught") return `c & b ${b.bowlerName ?? ""}`;
+          if (t === "lbw") return `lbw b ${b.bowlerName ?? ""}`;
+          if (t === "run-out") return "run out";
+          if (t === "stumped") return `st b ${b.bowlerName ?? ""}`;
+          return t ?? "out";
+        };
+
+        const allMatchBatsmen = (matchId: string | null, bName: string): ScoringZone[] => {
+          const source = matchId
+            ? matchScores.filter((m) => m.id === matchId)
+            : matchScores;
+          return source.flatMap((m) =>
+            m.innings.flatMap((inn) =>
+              inn.batsmen
+                .filter((b) => b.name === bName)
+                .flatMap((b) => b.scoringZones),
+            ),
+          );
+        };
+
+        const allMatchBowlers = (matchId: string | null, wName: string): ScoringZone[] => {
+          const source = matchId
+            ? matchScores.filter((m) => m.id === matchId)
+            : matchScores;
+          return source.flatMap((m) =>
+            m.innings.flatMap((inn) =>
+              inn.bowlers
+                .filter((b) => b.name === wName)
+                .flatMap((b) => b.scoringZones),
+            ),
+          );
+        };
+
+        const zoneRunTotals = (zones: ScoringZone[]) => {
+          const map = new Map<string, number>();
+          zones.forEach((z) => map.set(z.label, (map.get(z.label) ?? 0) + 1));
+          return Array.from(map.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3);
+        };
+
+        // ── Sub-views ────────────────────────────────────────────────────────
+
+        if (scoringView === "list") {
+          return (
+            <div className="scoringPanel">
+              <div className="scoringListHeader">
+                <h2>Match Scoring</h2>
+                <button type="button" onClick={() => setScoringView("setup")}>
+                  New match
+                </button>
+              </div>
+              {matchScores.length === 0 && (
+                <p className="scoringEmpty">No matches recorded yet. Start a new match to begin scoring.</p>
+              )}
+              {matchScores.map((m) => {
+                const t = m.innings[0] ? inningsTotals(m.innings[0]) : null;
+                const t2 = m.innings[1] ? inningsTotals(m.innings[1]) : null;
+                return (
+                  <div key={m.id} className="matchCard">
+                    <div className="matchCardTop">
+                      <span className="matchCardTeams">
+                        {m.teamA} vs {m.teamB}
+                      </span>
+                      <span className="matchCardFormat">{m.format} · {m.date}</span>
+                    </div>
+                    {t && (
+                      <div className="matchCardScores">
+                        <span>{m.innings[0].battingTeam}: {t.runs}/{t.wickets} ({t.oversStr} ov)</span>
+                        {t2 && <span>{m.innings[1].battingTeam}: {t2.runs}/{t2.wickets} ({t2.oversStr} ov)</span>}
+                      </div>
+                    )}
+                    {m.result && <p className="matchCardResult">{m.result}</p>}
+                    <div className="matchCardActions">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveMatchId(m.id);
+                          setScoringView(m.isCompleted ? "scorecard" : "live");
+                        }}
+                      >
+                        {m.isCompleted ? "Scorecard" : "Resume"}
+                      </button>
+                      <button
+                        type="button"
+                        className="matchCardDelete"
+                        onClick={() => deleteMatch(m.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        }
+
+        if (scoringView === "setup") {
+          return (
+            <div className="scoringPanel">
+              <div className="scoringListHeader">
+                <h2>New Match</h2>
+                <button type="button" onClick={() => setScoringView("list")}>Cancel</button>
+              </div>
+              <div className="setupGrid">
+                <label className="setupField">
+                  <span>Team A (your team)</span>
+                  <input
+                    value={matchSetupForm.teamA}
+                    onChange={(e) => setMatchSetupForm((f) => ({ ...f, teamA: e.target.value }))}
+                    placeholder="Team name"
+                  />
+                </label>
+                <label className="setupField">
+                  <span>Team B (opponent)</span>
+                  <input
+                    value={matchSetupForm.teamB}
+                    onChange={(e) => setMatchSetupForm((f) => ({ ...f, teamB: e.target.value }))}
+                    placeholder="Team name"
+                  />
+                </label>
+                <label className="setupField">
+                  <span>Format</span>
+                  <select
+                    value={matchSetupForm.format}
+                    onChange={(e) => {
+                      const fmt = e.target.value;
+                      const overs = fmt === "T20" ? 20 : fmt === "ODI" ? 50 : fmt === "T10" ? 10 : 20;
+                      setMatchSetupForm((f) => ({ ...f, format: fmt, maxOvers: overs }));
+                    }}
+                  >
+                    <option value="T20">T20</option>
+                    <option value="ODI">ODI</option>
+                    <option value="T10">T10</option>
+                    <option value="Club">Club</option>
+                  </select>
+                </label>
+                <label className="setupField">
+                  <span>Max overs</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={matchSetupForm.maxOvers}
+                    onChange={(e) => setMatchSetupForm((f) => ({ ...f, maxOvers: Number(e.target.value) }))}
+                  />
+                </label>
+                <label className="setupField setupFieldWide">
+                  <span>Venue (optional)</span>
+                  <input
+                    value={matchSetupForm.venue}
+                    onChange={(e) => setMatchSetupForm((f) => ({ ...f, venue: e.target.value }))}
+                    placeholder="Ground name"
+                  />
+                </label>
+                <div className="setupField setupFieldWide">
+                  <span>Toss</span>
+                  <div className="tossRow">
+                    <label>
+                      <input
+                        type="radio"
+                        name="tossWinner"
+                        value="A"
+                        checked={matchSetupForm.tossWinner === "A"}
+                        onChange={() => setMatchSetupForm((f) => ({ ...f, tossWinner: "A" }))}
+                      />{" "}
+                      {matchSetupForm.teamA || "Team A"} won toss
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="tossWinner"
+                        value="B"
+                        checked={matchSetupForm.tossWinner === "B"}
+                        onChange={() => setMatchSetupForm((f) => ({ ...f, tossWinner: "B" }))}
+                      />{" "}
+                      {matchSetupForm.teamB || "Team B"} won toss
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="tossDecision"
+                        value="bat"
+                        checked={matchSetupForm.tossDecision === "bat"}
+                        onChange={() => setMatchSetupForm((f) => ({ ...f, tossDecision: "bat" }))}
+                      />{" "}
+                      Elected to bat
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="tossDecision"
+                        value="field"
+                        checked={matchSetupForm.tossDecision === "field"}
+                        onChange={() => setMatchSetupForm((f) => ({ ...f, tossDecision: "field" }))}
+                      />{" "}
+                      Elected to field
+                    </label>
+                  </div>
+                </div>
+                <div className="setupField">
+                  <span>Team A players (one per line)</span>
+                  <textarea
+                    rows={6}
+                    value={matchSetupForm.teamAPlayers}
+                    onChange={(e) => setMatchSetupForm((f) => ({ ...f, teamAPlayers: e.target.value }))}
+                    placeholder={"Player 1\nPlayer 2\n..."}
+                  />
+                  {squadPlayers.length > 0 && (
+                    <button
+                      type="button"
+                      className="importBtn"
+                      onClick={() =>
+                        setMatchSetupForm((f) => ({
+                          ...f,
+                          teamAPlayers: squadPlayers.map((p) => p.name).join("\n"),
+                        }))
+                      }
+                    >
+                      Import from squad
+                    </button>
+                  )}
+                </div>
+                <div className="setupField">
+                  <span>Team B players (one per line)</span>
+                  <textarea
+                    rows={6}
+                    value={matchSetupForm.teamBPlayers}
+                    onChange={(e) => setMatchSetupForm((f) => ({ ...f, teamBPlayers: e.target.value }))}
+                    placeholder={"Player 1\nPlayer 2\n..."}
+                  />
+                  {knownOpponentRosters.length > 0 && (
+                    <button
+                      type="button"
+                      className="importBtn"
+                      onClick={() => setRosterPickerOpen((o) => !o)}
+                    >
+                      Import roster
+                    </button>
+                  )}
+                  {rosterPickerOpen && (
+                    <div className="rosterPicker">
+                      <p className="rosterPickerLabel">Select a previous opponent:</p>
+                      {knownOpponentRosters.map((r) => (
+                        <button
+                          key={r.name}
+                          type="button"
+                          className="rosterPickerBtn"
+                          onClick={() => {
+                            setMatchSetupForm((f) => ({
+                              ...f,
+                              teamB: r.name,
+                              teamBPlayers: r.players.join("\n"),
+                            }));
+                            setRosterPickerOpen(false);
+                          }}
+                        >
+                          {r.name} ({r.players.length} players)
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="startMatchBtn"
+                onClick={createMatch}
+                disabled={!matchSetupForm.teamA || !matchSetupForm.teamB}
+              >
+                Start match
+              </button>
+            </div>
+          );
+        }
+
+        if (scoringView === "live" && activeMatch) {
+          const inn = activeInnings ?? activeMatch.innings[activeMatch.innings.length - 1];
+          const { runs, wickets, oversStr } = inningsTotals(inn);
+          const battingTeam = inn.battingTeam;
+          const bowlingTeam = battingTeam === activeMatch.teamA ? activeMatch.teamB : activeMatch.teamA;
+          const target =
+            activeMatch.innings.length > 1 && !activeMatch.innings[0].isCompleted
+              ? null
+              : activeMatch.innings[0]?.isCompleted
+                ? inningsTotals(activeMatch.innings[0]).runs + 1
+                : null;
+          const allDeliveries = inn.overs.flatMap((o) => o.deliveries);
+          const legalBalls = allDeliveries.filter((d) => !d.isExtra || d.extraType === "bye" || d.extraType === "leg-bye").length;
+          const ballsLeft = activeMatch.maxOvers * 6 - legalBalls;
+          const rrr = target && ballsLeft > 0
+            ? (((target - runs) / ballsLeft) * 6).toFixed(1)
+            : null;
+          const overDeliveries = currentOver?.deliveries ?? [];
+          const striker = inn.currentBatsmen[0];
+          const nonStriker = inn.currentBatsmen[1];
+          const strikerStats = inn.batsmen.find((b) => b.name === striker);
+          const nonStrikerStats = inn.batsmen.find((b) => b.name === nonStriker);
+          const bowlerStats = inn.bowlers.find((b) => b.name === inn.currentBowler);
+
+          const recordOutcome = (
+            runs: number,
+            boundary?: "4" | "6",
+            extraType?: "wide" | "no-ball" | "bye" | "leg-bye",
+          ) => {
+            const extraRuns = extraType === "wide" || extraType === "no-ball" ? 1 : 0;
+            const pd: PendingDelivery = {
+              runs,
+              isBoundary: !!boundary,
+              boundaryType: boundary,
+              isExtra: !!extraType,
+              extraType,
+              extraRuns,
+              isWicket: false,
+            };
+            if (boundary) {
+              openZonePicker(pd);
+            } else {
+              commitDelivery(pd);
+            }
+          };
+
+          return (
+            <div className="scoringPanel">
+              {/* Score header */}
+              <div className="scoreboard">
+                <div className="scoreboardMain">
+                  <span className="scoreboardTeam">{battingTeam}</span>
+                  <span className="scoreboardRuns">{runs}/{wickets}</span>
+                  <span className="scoreboardOvers">({oversStr} ov)</span>
+                </div>
+                {rrr && (
+                  <div className="scoreboardTarget">
+                    Target: {target} · Need {target! - runs} off {Math.ceil(ballsLeft / 6)}.{ballsLeft % 6 === 0 ? 0 : ballsLeft % 6} overs · RRR: {rrr}
+                  </div>
+                )}
+              </div>
+
+              {/* Batsmen */}
+              <div className="batsmenPanel">
+                <div className="batsmanRow batsmanRowStriker">
+                  <span className="strikeIndicator">*</span>
+                  <span className="batsmanName">
+                    {striker || (
+                      <input
+                        className="playerNameInput"
+                        placeholder="Striker name"
+                        onBlur={(e) => {
+                          if (!e.target.value) return;
+                          updateActiveMatch((m) => ({
+                            ...m,
+                            innings: m.innings.map((inn, i) =>
+                              i === activeInningsIdx
+                                ? { ...inn, currentBatsmen: [e.target.value, inn.currentBatsmen[1]] }
+                                : inn,
+                            ),
+                          }));
+                        }}
+                      />
+                    )}
+                  </span>
+                  {strikerStats && (
+                    <span className="batsmanStats">
+                      {strikerStats.runs} ({strikerStats.balls}) SR {sr(strikerStats.runs, strikerStats.balls)}
+                    </span>
+                  )}
+                </div>
+                <div className="batsmanRow">
+                  <span className="strikeIndicator"> </span>
+                  <span className="batsmanName">
+                    {nonStriker || (
+                      <input
+                        className="playerNameInput"
+                        placeholder="Non-striker name"
+                        onBlur={(e) => {
+                          if (!e.target.value) return;
+                          updateActiveMatch((m) => ({
+                            ...m,
+                            innings: m.innings.map((inn, i) =>
+                              i === activeInningsIdx
+                                ? { ...inn, currentBatsmen: [inn.currentBatsmen[0], e.target.value] }
+                                : inn,
+                            ),
+                          }));
+                        }}
+                      />
+                    )}
+                  </span>
+                  {nonStrikerStats && (
+                    <span className="batsmanStats">
+                      {nonStrikerStats.runs} ({nonStrikerStats.balls}) SR {sr(nonStrikerStats.runs, nonStrikerStats.balls)}
+                    </span>
+                  )}
+                </div>
+                <button type="button" className="swapBtn" onClick={rotateStrike}>⇄ Swap strike</button>
+              </div>
+
+              {/* Bowler row */}
+              <div className="bowlerPanel">
+                <span className="bowlerPanelLabel">Bowling ({bowlingTeam}):</span>
+                {inn.currentBowler ? (
+                  <span className="bowlerName">{inn.currentBowler}</span>
+                ) : (
+                  <input
+                    className="playerNameInput"
+                    placeholder="Bowler name"
+                    onBlur={(e) => {
+                      if (!e.target.value) return;
+                      updateActiveMatch((m) => ({
+                        ...m,
+                        innings: m.innings.map((inn, i) =>
+                          i === activeInningsIdx ? { ...inn, currentBowler: e.target.value } : inn,
+                        ),
+                      }));
+                    }}
+                  />
+                )}
+                {bowlerStats && (
+                  <span className="bowlerStats">
+                    {bowlerStats.overs}-{bowlerStats.maidens}-{bowlerStats.runs}-{bowlerStats.wickets}
+                  </span>
+                )}
+              </div>
+
+              {/* Current over chips */}
+              {overDeliveries.length > 0 && (
+                <div className="overChips">
+                  {overDeliveries.map((d, i) => (
+                    <span
+                      key={i}
+                      className="ballChip"
+                      style={{ background: dotColor(d), color: d.runs === 0 && !d.isWicket ? "#e2e8f0" : "#fff" }}
+                    >
+                      {chipLabel(d)}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Outcome grid */}
+              <div className="outcomeGrid">
+                {[0, 1, 2, 3].map((r) => (
+                  <button key={r} type="button" className="outcomeBtn" onClick={() => recordOutcome(r)}>
+                    {r === 0 ? "•" : r}
+                  </button>
+                ))}
+                <button type="button" className="outcomeBtn boundary" onClick={() => recordOutcome(4, "4")}>4</button>
+                <button type="button" className="outcomeBtn boundary six" onClick={() => recordOutcome(6, "6")}>6</button>
+                <button
+                  type="button"
+                  className="outcomeBtn wicket"
+                  onClick={() => {
+                    // Show inline dismissal form then record
+                    const t = window.prompt("Dismissal type (bowled/caught/lbw/run-out/stumped/hit-wicket/other):", "bowled");
+                    if (t === null) return;
+                    const f = t === "caught" || t === "stumped" || t === "run-out"
+                      ? window.prompt("Fielder name (optional):", "") ?? ""
+                      : "";
+                    const pd: PendingDelivery = {
+                      runs: 0,
+                      isBoundary: false,
+                      isExtra: false,
+                      extraRuns: 0,
+                      isWicket: true,
+                      dismissalType: t || "bowled",
+                      fielderName: f || undefined,
+                    };
+                    commitDelivery(pd);
+                  }}
+                >
+                  W
+                </button>
+                <button type="button" className="outcomeBtn extra" onClick={() => recordOutcome(0, undefined, "wide")}>Wd</button>
+                <button type="button" className="outcomeBtn extra" onClick={() => recordOutcome(0, undefined, "no-ball")}>Nb</button>
+                <button type="button" className="outcomeBtn extra" onClick={() => recordOutcome(0, undefined, "bye")}>B</button>
+                <button type="button" className="outcomeBtn extra" onClick={() => recordOutcome(0, undefined, "leg-bye")}>Lb</button>
+                <button type="button" className="outcomeBtn undo" onClick={undoLastDelivery}>Undo</button>
+              </div>
+
+              {/* Actions */}
+              <div className="liveActions">
+                {!activeInnings?.isCompleted && (
+                  <button type="button" onClick={completeInnings}>End innings</button>
+                )}
+                <button type="button" onClick={() => setScoringView("scorecard")}>Scorecard</button>
+                {activeMatch.innings.length >= 2 && activeMatch.innings[0].isCompleted && (
+                  <button
+                    type="button"
+                    className="endMatchBtn"
+                    onClick={() => {
+                      const r = window.prompt("Match result:", `${battingTeam} won`) ?? "";
+                      if (r) endMatch(r);
+                    }}
+                  >
+                    End match
+                  </button>
+                )}
+              </div>
+
+              {/* Zone picker overlay */}
+              {zonePickerOpen && (
+                <div className="zoneOverlay">
+                  <div className="zonePickerBox">
+                    <h3 className="zonePickerTitle">
+                      Where did the {pendingDelivery?.boundaryType} go?
+                    </h3>
+                    <div className="zoneFieldWrap">
+                      <svg viewBox="0 0 100 100" className="zoneFieldSvg">
+                        <ellipse cx="50" cy="50" rx="48" ry="48" fill="#2f8438" stroke="#1d5a26" strokeWidth="1" />
+                        <ellipse cx="50" cy="50" rx="38" ry="38" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" strokeDasharray="3 2" />
+                        <ellipse cx="50" cy="50" rx="20" ry="20" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" strokeDasharray="2 2" />
+                        <rect x="47" y="36" width="6" height="28" rx="2" fill="#c8a06a" stroke="#a47e4f" strokeWidth="0.5" />
+                        {ZONES.map((z) => (
+                          <g key={z.label}>
+                            <circle
+                              cx={z.x}
+                              cy={z.y}
+                              r="8"
+                              fill="rgba(255,255,255,0.15)"
+                              stroke="rgba(255,255,255,0.4)"
+                              strokeWidth="0.5"
+                              className="zoneCircle"
+                              onClick={() => confirmZone(z)}
+                              style={{ cursor: "pointer" }}
+                            />
+                            <text
+                              x={z.x}
+                              y={z.y + 0.8}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              fill="white"
+                              fontSize="4"
+                              style={{ pointerEvents: "none", userSelect: "none" }}
+                            >
+                              {z.label.split(" ").map((w, i, arr) => (
+                                <tspan key={i} x={z.x} dy={i === 0 ? (arr.length > 1 ? -2 : 0) : 4}>
+                                  {w}
+                                </tspan>
+                              ))}
+                            </text>
+                          </g>
+                        ))}
+                      </svg>
+                    </div>
+                    <button type="button" className="skipZoneBtn" onClick={skipZone}>
+                      Skip / don't record zone
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        if (scoringView === "scorecard" && activeMatch) {
+          const scorecardInnings = scorecardInningsIdx;
+          const setScorecardInnings = setScorecardInningsIdx;
+          const inn = activeMatch.innings[scorecardInnings];
+          if (!inn) return null;
+          const { runs, wickets, oversStr } = inningsTotals(inn);
+          const extras = inn.extras.wides + inn.extras.noBalls + inn.extras.byes + inn.extras.legByes;
+
+          return (
+            <div className="scoringPanel">
+              <div className="scoringListHeader">
+                <h2>Scorecard</h2>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {!activeMatch.isCompleted && (
+                    <button type="button" onClick={() => setScoringView("live")}>Live</button>
+                  )}
+                  <button type="button" onClick={() => setScoringView("list")}>Matches</button>
+                </div>
+              </div>
+
+              {activeMatch.innings.length > 1 && (
+                <div className="inningsTabs">
+                  {activeMatch.innings.map((inn, i) => (
+                    <button
+                      key={inn.id}
+                      type="button"
+                      className={scorecardInnings === i ? "active" : ""}
+                      onClick={() => setScorecardInnings(i)}
+                    >
+                      {inn.battingTeam} innings
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <p className="inningsTotal">
+                {inn.battingTeam}: {runs}/{wickets} ({oversStr} ov)
+              </p>
+
+              <div className="scorecardSection">
+                <h3>Batting</h3>
+                <table className="scorecardTable">
+                  <thead>
+                    <tr>
+                      <th>Batsman</th>
+                      <th>R</th>
+                      <th>B</th>
+                      <th>4s</th>
+                      <th>6s</th>
+                      <th>SR</th>
+                      <th>Dismissal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inn.batsmen
+                      .slice()
+                      .sort((a, b) => a.battingOrder - b.battingOrder)
+                      .map((b) => (
+                        <tr key={b.name}>
+                          <td>{b.name}</td>
+                          <td>{b.runs}</td>
+                          <td>{b.balls}</td>
+                          <td>{b.fours}</td>
+                          <td>{b.sixes}</td>
+                          <td>{sr(b.runs, b.balls)}</td>
+                          <td className="dismissalCell">{dismissalLabel(b)}</td>
+                        </tr>
+                      ))}
+                    <tr className="extrasRow">
+                      <td colSpan={7}>
+                        Extras: {extras} (Wd: {inn.extras.wides} Nb: {inn.extras.noBalls} B: {inn.extras.byes} Lb: {inn.extras.legByes})
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="scorecardSection">
+                <h3>Bowling</h3>
+                <table className="scorecardTable">
+                  <thead>
+                    <tr>
+                      <th>Bowler</th>
+                      <th>O</th>
+                      <th>M</th>
+                      <th>R</th>
+                      <th>W</th>
+                      <th>Econ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inn.bowlers.map((w) => (
+                      <tr key={w.name}>
+                        <td>{w.name}</td>
+                        <td>{w.partialBalls > 0 ? `${w.overs}.${w.partialBalls}` : w.overs}</td>
+                        <td>{w.maidens}</td>
+                        <td>{w.runs}</td>
+                        <td>{w.wickets}</td>
+                        <td>{econ(w.runs, w.overs, w.partialBalls)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <button type="button" className="analysisLinkBtn" onClick={() => setScoringView("analysis")}>
+                View Analysis
+              </button>
+            </div>
+          );
+        }
+
+        if (scoringView === "analysis" && activeMatch) {
+          const allMatches = allMatchesAnalysis;
+          const setAllMatches = setAllMatchesAnalysis;
+          const matchIdFilter = allMatches ? null : activeMatch.id;
+
+          const batsmanNames = Array.from(
+            new Set(
+              (allMatches ? matchScores : [activeMatch]).flatMap((m) =>
+                m.innings.flatMap((inn) => inn.batsmen.map((b) => b.name)),
+              ),
+            ),
+          );
+          const bowlerNames = Array.from(
+            new Set(
+              (allMatches ? matchScores : [activeMatch]).flatMap((m) =>
+                m.innings.flatMap((inn) => inn.bowlers.map((b) => b.name)),
+              ),
+            ),
+          );
+
+          const zones =
+            analysisMode === "batsman"
+              ? allMatchBatsmen(matchIdFilter, analysisBatsman)
+              : allMatchBowlers(matchIdFilter, analysisBowler);
+
+          const topZones = zoneRunTotals(zones);
+
+          return (
+            <div className="scoringPanel">
+              <div className="scoringListHeader">
+                <h2>Analysis</h2>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button type="button" onClick={() => setScoringView("scorecard")}>Scorecard</button>
+                  <button type="button" onClick={() => setScoringView("list")}>Matches</button>
+                </div>
+              </div>
+
+              {/* Batsman / Bowler toggle */}
+              <div className="analysisModeRow">
+                <button
+                  type="button"
+                  className={analysisMode === "batsman" ? "active" : ""}
+                  onClick={() => setAnalysisMode("batsman")}
+                >
+                  Batsman
+                </button>
+                <button
+                  type="button"
+                  className={analysisMode === "bowler" ? "active" : ""}
+                  onClick={() => setAnalysisMode("bowler")}
+                >
+                  Bowler
+                </button>
+              </div>
+
+              {/* Selector */}
+              {analysisMode === "batsman" ? (
+                <label className="setupField">
+                  <span>Select batsman</span>
+                  <select value={analysisBatsman} onChange={(e) => setAnalysisBatsman(e.target.value)}>
+                    <option value="">— choose —</option>
+                    {batsmanNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </label>
+              ) : (
+                <label className="setupField">
+                  <span>Select bowler</span>
+                  <select value={analysisBowler} onChange={(e) => setAnalysisBowler(e.target.value)}>
+                    <option value="">— choose —</option>
+                    {bowlerNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </label>
+              )}
+
+              {/* All matches toggle */}
+              <label className="allMatchesToggle">
+                <input type="checkbox" checked={allMatches} onChange={(e) => setAllMatches(e.target.checked)} />
+                {" "}Show all matches
+              </label>
+
+              {/* Field diagram with zone dots */}
+              {(analysisBatsman || analysisBowler) && (
+                <>
+                  <div className="analysisField">
+                    <svg viewBox="0 0 100 100" className="analysisFieldSvg">
+                      <ellipse cx="50" cy="50" rx="48" ry="48" fill="#2f8438" stroke="#1d5a26" strokeWidth="1" />
+                      <ellipse cx="50" cy="50" rx="38" ry="38" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" strokeDasharray="3 2" />
+                      <ellipse cx="50" cy="50" rx="20" ry="20" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" strokeDasharray="2 2" />
+                      <rect x="47" y="36" width="6" height="28" rx="2" fill="#c8a06a" stroke="#a47e4f" strokeWidth="0.5" />
+                      {/* Zone labels */}
+                      {ZONES.map((z) => (
+                        <text
+                          key={z.label}
+                          x={z.x}
+                          y={z.y}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fill="rgba(255,255,255,0.35)"
+                          fontSize="3.2"
+                          style={{ userSelect: "none" }}
+                        >
+                          {z.label}
+                        </text>
+                      ))}
+                      {/* Scored zone dots */}
+                      {zones.map((z, i) => (
+                        <circle
+                          key={i}
+                          cx={z.x + ((i * 1.618) % 4) - 2}
+                          cy={z.y + ((i * 2.414) % 4) - 2}
+                          r="2.5"
+                          fill={analysisMode === "batsman" ? "#22c55e" : "#f59e0b"}
+                          opacity="0.8"
+                          stroke="white"
+                          strokeWidth="0.3"
+                        />
+                      ))}
+                    </svg>
+                  </div>
+
+                  {topZones.length > 0 && (
+                    <div className="analysisZoneSummary">
+                      <h4>
+                        {analysisMode === "batsman" ? "Scores heavily:" : "Concedes most to:"}
+                      </h4>
+                      <ul>
+                        {topZones.map(([label, count]) => (
+                          <li key={label}>{label} ({count} deliveries)</li>
+                        ))}
+                      </ul>
+                      <p className="analysisSuggestion">
+                        {analysisMode === "batsman"
+                          ? `Consider placing a fielder at ${topZones[0]?.[0]} when ${analysisBatsman} is batting.`
+                          : `Consider strengthening ${topZones[0]?.[0]} when ${analysisBowler} is bowling.`}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        }
+
+        return null;
+      })()}
+
     </main>
   );
 }
