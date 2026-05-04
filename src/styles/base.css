@@ -1,7 +1,23 @@
 :root {
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #102a43;
-  background: #f4f7fb;
+  font-feature-settings: "kern" 1;
+  color: #1a1a2e;
+  background: #0d3321;
+
+  /* Brand palette */
+  --green-900: #0a2e1a;
+  --green-700: #1a5c36;
+  --green-500: #2d8653;
+  --green-200: #a3d9b8;
+  --gold-500:  #d4a017;
+  --gold-300:  #fbbf24;
+  --gold-100:  #fef9c3;
+  --navy:      #0c1f4a;
+  --cream:     #fdf8ee;
+  --cream-100: #f9f2e0;
+  --text-dark: #1a1a2e;
+  --text-mid:  #3d4f3d;
+  --text-muted: #6b7c6b;
 }
 
 * {
@@ -10,6 +26,15 @@
 
 body {
   margin: 0;
+  /* Deep cricket-green base with a radial glow suggesting an oval cricket ground */
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 55%, #14522a 0%, #0a2e1a 55%, #071a0f 100%);
+  background-color: #0d3321;
+  /* Subtle grass-stripe overlay via repeating diagonal SVG stripes */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='none'/%3E%3Cpath d='M-10 50L50-10M0 40L40 0M10 50L50 10' stroke='%230a2e1a' stroke-width='10' stroke-opacity='0.45'/%3E%3Cpath d='M-10 50L50-10M0 40L40 0M10 50L50 10' stroke='%231a5c36' stroke-width='3' stroke-opacity='0.18'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 90% 70% at 50% 55%, #14522a 0%, #0a2e1a 55%, #071a0f 100%);
+  min-height: 100vh;
 }
 
 button,
@@ -28,6 +53,9 @@ textarea {
   max-width: 720px;
   margin: 0 auto;
   overflow-x: hidden;
+  background: rgba(253, 248, 238, 0.97);
+  border-radius: 0;
+  box-shadow: none;
 }
 
 @media (max-width: 520px) {
