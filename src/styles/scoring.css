@@ -1,8 +1,16 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Scoring — sporty, high-contrast design
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Panel shell ─────────────────────────────────────────────────────────── */
+
 .scoringPanel {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   text-align: left;
 }
+
+/* ── List / page header ───────────────────────────────────────────────────── */
 
 .scoringListHeader {
   display: flex;
@@ -13,63 +21,77 @@
 
 .scoringListHeader h2 {
   margin: 0;
-  color: #102a43;
-  font-size: 20px;
-  letter-spacing: 0;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
 }
 
 .scoringListHeader button {
   border: 0;
-  border-radius: 8px;
-  background: #0f62fe;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
   color: #ffffff;
-  padding: 8px 12px;
+  padding: 9px 16px;
   font-size: 13px;
   font-weight: 800;
   white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.40);
+  letter-spacing: 0.02em;
 }
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
 
 .scoringEmpty {
   margin: 0;
-  color: #486581;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.4;
-  border: 1px solid #d9e2ec;
-  border-radius: 8px;
-  padding: 16px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 28px 16px;
   text-align: center;
+  background: #f8fafc;
 }
 
 /* ── Match list card ──────────────────────────────────────────────────────── */
 
 .matchCard {
   display: grid;
-  gap: 6px;
-  border: 1px solid #d9e2ec;
-  border-radius: 8px;
+  gap: 8px;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #2563eb;
+  border-radius: 10px;
   background: #ffffff;
-  padding: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .matchCardTop {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
 }
 
 .matchCardTeams {
   font-size: 15px;
-  font-weight: 800;
-  color: #102a43;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.2px;
 }
 
 .matchCardFormat {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  color: #486581;
+  color: #ffffff;
+  background: #475569;
+  border-radius: 999px;
+  padding: 2px 8px;
   white-space: nowrap;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .matchCardScores {
@@ -77,7 +99,7 @@
   flex-direction: column;
   gap: 2px;
   font-size: 13px;
-  color: #243b53;
+  color: #334155;
   font-weight: 700;
 }
 
@@ -85,26 +107,29 @@
   margin: 0;
   font-size: 13px;
   font-weight: 800;
-  color: #0f766e;
+  color: #15803d;
+  letter-spacing: 0.01em;
 }
 
 .matchCardActions {
   display: flex;
   gap: 6px;
+  padding-top: 2px;
 }
 
 .matchCardActions button {
   border: 0;
   border-radius: 8px;
-  background: #0f62fe;
+  background: #2563eb;
   color: #ffffff;
-  padding: 7px 10px;
+  padding: 8px 14px;
   font-size: 12px;
   font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .matchCardDelete {
-  background: #829ab1 !important;
+  background: #94a3b8 !important;
 }
 
 /* ── Match setup ─────────────────────────────────────────────────────────── */
@@ -112,18 +137,20 @@
 .setupGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 
 .setupField {
   display: grid;
-  gap: 4px;
+  gap: 5px;
 }
 
 .setupField span {
-  color: #486581;
-  font-size: 12px;
+  color: #475569;
+  font-size: 11px;
   font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 
 .setupField input,
@@ -131,12 +158,20 @@
 .setupField textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid #cfd8e3;
+  border: 1.5px solid #cbd5e1;
   border-radius: 8px;
   background: #ffffff;
-  color: #102a43;
-  padding: 8px 10px;
-  font-size: 16px;
+  color: #0f172a;
+  padding: 9px 12px;
+  font-size: 15px;
+  transition: border-color 0.15s;
+}
+
+.setupField input:focus,
+.setupField select:focus,
+.setupField textarea:focus {
+  border-color: #2563eb;
+  outline: none;
 }
 
 .setupFieldWide {
@@ -149,124 +184,160 @@
   gap: 10px;
   font-size: 14px;
   font-weight: 700;
-  color: #243b53;
-  padding: 8px 0;
+  color: #334155;
+  padding: 6px 0;
 }
 
 .importBtn {
   justify-self: start;
-  border: 1px solid #0f62fe;
+  border: 1.5px solid #2563eb;
   border-radius: 8px;
-  background: #eef5ff;
-  color: #0b3d91;
-  padding: 6px 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 6px 12px;
   font-size: 12px;
   font-weight: 800;
   margin-top: 4px;
+  letter-spacing: 0.02em;
 }
 
 .rosterPicker {
   display: grid;
-  gap: 4px;
-  border: 1px solid #bcccdc;
-  border-radius: 8px;
+  gap: 5px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
   background: #f8fafc;
-  padding: 8px;
+  padding: 10px;
   margin-top: 4px;
 }
 
 .rosterPickerLabel {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
-  color: #486581;
+  color: #475569;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .rosterPickerBtn {
-  border: 1px solid #bcccdc;
-  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
   background: #ffffff;
-  color: #102a43;
-  padding: 7px 10px;
+  color: #0f172a;
+  padding: 8px 12px;
   font-size: 13px;
   font-weight: 700;
   text-align: left;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 
 .startMatchBtn {
   border: 0;
-  border-radius: 8px;
-  background: #0f62fe;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #15803d 0%, #16a34a 100%);
   color: #ffffff;
-  padding: 12px;
-  font-size: 15px;
-  font-weight: 800;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  box-shadow: 0 4px 12px rgba(21, 128, 61, 0.35);
 }
 
 .startMatchBtn:disabled {
-  background: #bcccdc;
-  color: #f4f7fb;
+  background: #cbd5e1;
+  color: #f1f5f9;
+  box-shadow: none;
 }
 
-/* ── Live scoring ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Live scoring
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Scoreboard ───────────────────────────────────────────────────────────── */
 
 .scoreboard {
-  border: 1px solid #d9e2ec;
-  border-radius: 8px;
-  background: #0b3d91;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #0c1f4a 0%, #0f3460 55%, #16213e 100%);
   color: #ffffff;
-  padding: 12px;
+  padding: 16px;
+  box-shadow: 0 6px 20px rgba(12, 31, 74, 0.45);
+  position: relative;
+  overflow: hidden;
+}
+
+.scoreboard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
 }
 
 .scoreboardMain {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
+  position: relative;
 }
 
 .scoreboardTeam {
-  font-size: 13px;
-  font-weight: 800;
-  opacity: 0.8;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #93c5fd;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
 }
 
 .scoreboardRuns {
-  font-size: 32px;
+  font-size: 48px;
   font-weight: 900;
-  letter-spacing: -1px;
+  letter-spacing: -2px;
   line-height: 1;
+  color: #fbbf24;
+  text-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
 }
 
 .scoreboardOvers {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
-  opacity: 0.75;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.02em;
 }
 
 .scoreboardTarget {
   font-size: 13px;
   font-weight: 700;
-  opacity: 0.9;
-  margin-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  padding-top: 6px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding-top: 10px;
+  position: relative;
+  letter-spacing: 0.01em;
 }
+
+/* ── Batsmen panel ────────────────────────────────────────────────────────── */
 
 .batsmenPanel {
   display: grid;
-  gap: 6px;
-  border: 1px solid #d9e2ec;
-  border-radius: 8px;
+  gap: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
   background: #ffffff;
-  padding: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .batsmanRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 14px;
+  padding: 4px 0;
 }
 
 .batsmanRowStriker {
@@ -274,10 +345,12 @@
 }
 
 .strikeIndicator {
-  width: 12px;
-  color: #0f62fe;
-  font-size: 16px;
+  width: 18px;
+  font-size: 18px;
   line-height: 1;
+  color: #f59e0b;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+  flex-shrink: 0;
 }
 
 .batsmanName {
@@ -286,130 +359,188 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #102a43;
+  color: #0f172a;
 }
 
 .batsmanStats {
   font-size: 12px;
   font-weight: 700;
-  color: #486581;
+  color: #64748b;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .swapBtn {
   justify-self: start;
-  border: 1px solid #bcccdc;
+  border: 1.5px solid #cbd5e1;
   border-radius: 999px;
   background: #f8fafc;
-  color: #486581;
-  padding: 5px 10px;
+  color: #475569;
+  padding: 5px 12px;
   font-size: 12px;
   font-weight: 800;
+  letter-spacing: 0.02em;
 }
+
+/* ── Bowler panel ─────────────────────────────────────────────────────────── */
 
 .bowlerPanel {
   display: flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid #d9e2ec;
-  border-radius: 8px;
-  background: #ffffff;
-  padding: 8px 10px;
+  gap: 8px;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #7c3aed;
+  border-radius: 10px;
+  background: #faf5ff;
+  padding: 10px 12px;
   font-size: 14px;
   flex-wrap: wrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .bowlerPanelLabel {
-  font-size: 12px;
-  font-weight: 800;
-  color: #486581;
+  font-size: 10px;
+  font-weight: 900;
+  color: #7c3aed;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .bowlerName {
   font-weight: 800;
-  color: #102a43;
+  color: #1e1b4b;
 }
 
 .bowlerStats {
   font-size: 12px;
   font-weight: 700;
-  color: #486581;
+  color: #6d28d9;
   margin-left: auto;
+  font-variant-numeric: tabular-nums;
 }
 
 .playerNameInput {
   flex: 1;
   min-width: 0;
-  border: 1px solid #cfd8e3;
+  border: 1.5px solid #cbd5e1;
   border-radius: 6px;
   background: #ffffff;
-  color: #102a43;
-  padding: 6px 8px;
+  color: #0f172a;
+  padding: 6px 10px;
   font-size: 14px;
 }
 
+/* ── Current over chips ───────────────────────────────────────────────────── */
+
 .overChips {
   display: flex;
-  gap: 5px;
+  gap: 6px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.overChips::before {
+  content: "This over";
+  font-size: 10px;
+  font-weight: 900;
+  color: #94a3b8;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-right: 2px;
 }
 
 .ballChip {
   display: grid;
   place-items: center;
-  min-width: 30px;
-  height: 30px;
-  border-radius: 6px;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 50%;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 900;
   padding: 0 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
+
+/* ── Outcome grid ─────────────────────────────────────────────────────────── */
 
 .outcomeGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  gap: 7px;
 }
 
 .outcomeBtn {
-  min-height: 52px;
-  border: 1px solid #bcccdc;
-  border-radius: 10px;
-  background: #ffffff;
-  color: #102a43;
-  font-size: 16px;
-  font-weight: 800;
+  min-height: 62px;
+  border: 0;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 900;
+  box-shadow: 0 2px 0 #cbd5e1, 0 2px 6px rgba(0,0,0,0.06);
+  transition: transform 0.08s, box-shadow 0.08s;
+  letter-spacing: -0.5px;
+}
+
+.outcomeBtn:active {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 #cbd5e1;
 }
 
 .outcomeBtn.boundary {
-  background: #16a34a;
-  border-color: #15803d;
+  background: linear-gradient(160deg, #15803d 0%, #16a34a 100%);
   color: #ffffff;
+  box-shadow: 0 2px 0 #166534, 0 3px 8px rgba(21, 128, 61, 0.30);
+}
+
+.outcomeBtn.boundary:active {
+  box-shadow: 0 0 0 #166534;
 }
 
 .outcomeBtn.six {
-  background: #ca8a04;
-  border-color: #a16207;
+  background: linear-gradient(160deg, #b45309 0%, #d97706 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 0 #92400e, 0 3px 8px rgba(180, 83, 9, 0.30);
+}
+
+.outcomeBtn.six:active {
+  box-shadow: 0 0 0 #92400e;
 }
 
 .outcomeBtn.wicket {
-  background: #dc2626;
-  border-color: #b91c1c;
+  background: linear-gradient(160deg, #b91c1c 0%, #dc2626 100%);
   color: #ffffff;
+  font-size: 22px;
+  box-shadow: 0 2px 0 #991b1b, 0 3px 8px rgba(185, 28, 28, 0.30);
+}
+
+.outcomeBtn.wicket:active {
+  box-shadow: 0 0 0 #991b1b;
 }
 
 .outcomeBtn.extra {
-  background: #d97706;
-  border-color: #b45309;
+  background: linear-gradient(160deg, #b45309 0%, #f59e0b 100%);
   color: #ffffff;
+  font-size: 14px;
+  box-shadow: 0 2px 0 #92400e, 0 3px 8px rgba(180, 83, 9, 0.25);
+}
+
+.outcomeBtn.extra:active {
+  box-shadow: 0 0 0 #92400e;
 }
 
 .outcomeBtn.undo {
-  background: #829ab1;
-  border-color: #627d98;
+  background: #475569;
   color: #ffffff;
   font-size: 13px;
+  box-shadow: 0 2px 0 #334155, 0 2px 6px rgba(0,0,0,0.12);
 }
+
+.outcomeBtn.undo:active {
+  box-shadow: 0 0 0 #334155;
+}
+
+/* ── Live action buttons ──────────────────────────────────────────────────── */
 
 .liveActions {
   display: flex;
@@ -418,17 +549,21 @@
 }
 
 .liveActions button {
-  border: 0;
+  border: 1.5px solid #e2e8f0;
   border-radius: 8px;
-  background: #0f62fe;
-  color: #ffffff;
-  padding: 10px 14px;
+  background: #ffffff;
+  color: #334155;
+  padding: 9px 14px;
   font-size: 13px;
   font-weight: 800;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
 .endMatchBtn {
+  border-color: #7c3aed !important;
   background: #7c3aed !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35) !important;
 }
 
 /* ── Zone picker overlay ──────────────────────────────────────────────────── */
@@ -436,26 +571,28 @@
 .zoneOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.88);
+  background: rgba(5, 10, 24, 0.92);
   z-index: 200;
   display: grid;
   place-items: center;
   padding: 16px;
+  backdrop-filter: blur(4px);
 }
 
 .zonePickerBox {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   width: 100%;
   max-width: 360px;
 }
 
 .zonePickerTitle {
   margin: 0;
-  color: #ffffff;
-  font-size: 18px;
-  font-weight: 800;
+  color: #fbbf24;
+  font-size: 20px;
+  font-weight: 900;
   text-align: center;
+  letter-spacing: -0.3px;
 }
 
 .zoneFieldWrap {
@@ -469,6 +606,7 @@
   height: auto;
   border-radius: 50%;
   overflow: visible;
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.5));
 }
 
 .zoneCircle {
@@ -476,13 +614,13 @@
 }
 
 .zoneCircle:hover {
-  fill: rgba(255, 255, 255, 0.35) !important;
+  fill: rgba(251, 191, 36, 0.45) !important;
 }
 
 .skipZoneBtn {
   border: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 13px;
   font-weight: 700;
   text-align: center;
@@ -490,7 +628,9 @@
   padding: 4px;
 }
 
-/* ── Scorecard ────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Scorecard
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .inningsTabs {
   display: flex;
@@ -498,35 +638,38 @@
 }
 
 .inningsTabs button {
-  border: 1px solid #bcccdc;
+  border: 1.5px solid #e2e8f0;
   border-radius: 999px;
   background: #f8fafc;
-  color: #486581;
-  padding: 6px 10px;
+  color: #475569;
+  padding: 7px 14px;
   font-size: 12px;
   font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .inningsTabs button.active {
-  border-color: #0f62fe;
-  background: #0f62fe;
+  border-color: #2563eb;
+  background: #2563eb;
   color: #ffffff;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.30);
 }
 
 .inningsTotal {
   margin: 0;
-  font-size: 16px;
-  font-weight: 800;
-  color: #102a43;
+  font-size: 18px;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.3px;
 }
 
 .scorecardSection h3 {
-  margin: 0 0 6px;
-  font-size: 14px;
+  margin: 0 0 8px;
+  font-size: 11px;
   font-weight: 900;
-  color: #486581;
+  color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
 }
 
 .scorecardTable {
@@ -537,11 +680,13 @@
 
 .scorecardTable th {
   text-align: right;
-  font-size: 11px;
-  font-weight: 800;
-  color: #486581;
-  padding: 4px 6px;
-  border-bottom: 1px solid #d9e2ec;
+  font-size: 10px;
+  font-weight: 900;
+  color: #94a3b8;
+  padding: 5px 6px;
+  border-bottom: 2px solid #e2e8f0;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .scorecardTable th:first-child {
@@ -550,14 +695,16 @@
 
 .scorecardTable td {
   text-align: right;
-  padding: 5px 6px;
-  color: #102a43;
-  border-bottom: 1px solid #f4f7fb;
+  padding: 6px 6px;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+  font-variant-numeric: tabular-nums;
 }
 
 .scorecardTable td:first-child {
   text-align: left;
   font-weight: 700;
+  color: #0f172a;
 }
 
 .scorecardTable tr:nth-child(even) td {
@@ -566,30 +713,35 @@
 
 .dismissalCell {
   font-size: 11px;
-  color: #486581 !important;
-  font-weight: 700;
+  color: #94a3b8 !important;
+  font-weight: 600;
   text-align: left !important;
+  font-style: italic;
 }
 
 .extrasRow td {
   font-size: 12px;
-  color: #486581 !important;
+  color: #64748b !important;
   font-weight: 700;
-  border-top: 1px solid #d9e2ec;
+  border-top: 2px solid #e2e8f0;
 }
 
 .analysisLinkBtn {
   border: 0;
-  border-radius: 8px;
-  background: #7c3aed;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);
   color: #ffffff;
-  padding: 10px 14px;
+  padding: 11px 18px;
   font-size: 13px;
   font-weight: 800;
   justify-self: start;
+  box-shadow: 0 3px 8px rgba(109, 40, 217, 0.35);
+  letter-spacing: 0.02em;
 }
 
-/* ── Analysis ─────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Analysis
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .analysisModeRow {
   display: flex;
@@ -597,19 +749,21 @@
 }
 
 .analysisModeRow button {
-  border: 1px solid #bcccdc;
+  border: 1.5px solid #e2e8f0;
   border-radius: 999px;
   background: #f8fafc;
-  color: #486581;
-  padding: 7px 14px;
+  color: #475569;
+  padding: 8px 16px;
   font-size: 13px;
   font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .analysisModeRow button.active {
-  border-color: #0f62fe;
-  background: #0f62fe;
+  border-color: #2563eb;
+  background: #2563eb;
   color: #ffffff;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.30);
 }
 
 .allMatchesToggle {
@@ -618,7 +772,7 @@
   gap: 6px;
   font-size: 13px;
   font-weight: 700;
-  color: #486581;
+  color: #475569;
 }
 
 .analysisField {
@@ -631,29 +785,31 @@
   max-width: 320px;
   height: auto;
   border-radius: 50%;
+  filter: drop-shadow(0 3px 10px rgba(0,0,0,0.15));
 }
 
 .analysisZoneSummary {
-  border: 1px solid #d9e2ec;
-  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
   background: #ffffff;
-  padding: 10px;
+  padding: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 
 .analysisZoneSummary h4 {
-  margin: 0 0 6px;
-  font-size: 13px;
+  margin: 0 0 8px;
+  font-size: 10px;
   font-weight: 900;
-  color: #486581;
+  color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.1em;
 }
 
 .analysisZoneSummary ul {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   padding-left: 18px;
   font-size: 13px;
-  color: #102a43;
+  color: #1e293b;
   font-weight: 700;
 }
 
@@ -661,70 +817,85 @@
   margin: 0;
   font-size: 13px;
   font-weight: 700;
-  color: #0f766e;
-  line-height: 1.35;
+  color: #15803d;
+  line-height: 1.45;
 }
 
-/* ── Player pick button (inline, replaces text input) ─────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Player pick button (inline, when slot is empty)
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .pickPlayerBtn {
-  border: 1px dashed #bcccdc;
-  border-radius: 6px;
-  background: #f8fafc;
-  color: #486581;
-  padding: 5px 10px;
-  font-size: 13px;
-  font-weight: 700;
+  border: 1.5px dashed #93c5fd;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
-/* ── Shared modal overlay ─────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Shared modal overlay
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .modalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.72);
+  background: rgba(5, 10, 24, 0.80);
   z-index: 300;
   display: grid;
   place-items: center;
   padding: 16px;
+  backdrop-filter: blur(3px);
 }
 
 .modalBox {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   width: 100%;
   max-width: 360px;
   background: #ffffff;
-  border-radius: 12px;
-  padding: 18px;
+  border-radius: 16px;
+  padding: 22px 18px 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.40);
 }
 
 .modalTitle {
   margin: 0;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 900;
-  color: #102a43;
+  color: #0f172a;
   text-align: center;
+  letter-spacing: -0.3px;
 }
 
 .modalSubtitle {
-  margin: -6px 0 0;
+  margin: -8px 0 0;
   font-size: 13px;
-  font-weight: 700;
-  color: #486581;
+  font-weight: 600;
+  color: #64748b;
   text-align: center;
 }
 
 .modalInput {
   width: 100%;
   min-width: 0;
-  border: 1px solid #cfd8e3;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #102a43;
-  padding: 9px 12px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  padding: 10px 13px;
   font-size: 15px;
   box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.modalInput:focus {
+  border-color: #2563eb;
+  outline: none;
+  background: #ffffff;
 }
 
 .modalActions {
@@ -734,11 +905,11 @@
 
 .modalCancel {
   flex: 1;
-  border: 1px solid #bcccdc;
-  border-radius: 8px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
   background: #f8fafc;
-  color: #486581;
-  padding: 10px;
+  color: #475569;
+  padding: 11px;
   font-size: 14px;
   font-weight: 800;
 }
@@ -746,16 +917,19 @@
 .modalConfirm {
   flex: 2;
   border: 0;
-  border-radius: 8px;
-  background: #0f62fe;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
   color: #ffffff;
-  padding: 10px;
+  padding: 11px;
   font-size: 14px;
   font-weight: 800;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
 }
 
 .modalConfirm:disabled {
-  background: #bcccdc;
+  background: #cbd5e1;
+  box-shadow: none;
+  color: #94a3b8;
 }
 
 /* ── Wicket dismissal modal ───────────────────────────────────────────────── */
@@ -763,28 +937,31 @@
 .dismissalGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 7px;
+  gap: 8px;
 }
 
 .dismissalCard {
-  border: 2px solid #d9e2ec;
-  border-radius: 10px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
   background: #f8fafc;
-  color: #243b53;
-  padding: 12px 8px;
+  color: #334155;
+  padding: 13px 8px;
   font-size: 14px;
   font-weight: 800;
   text-align: center;
+  transition: border-color 0.12s, background 0.12s;
 }
 
 .dismissalCard.selected {
   border-color: #dc2626;
-  background: #fef2f2;
-  color: #dc2626;
+  background: #fff1f2;
+  color: #b91c1c;
+  box-shadow: 0 0 0 1px #dc2626;
 }
 
 .wicketConfirm {
-  background: #dc2626 !important;
+  background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%) !important;
+  box-shadow: 0 3px 10px rgba(185, 28, 28, 0.40) !important;
 }
 
 /* ── Extras run picker ────────────────────────────────────────────────────── */
@@ -792,44 +969,61 @@
 .extrasRunGrid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
+  gap: 7px;
 }
 
 .extrasRunBtn {
-  min-height: 48px;
-  border: 1px solid #bcccdc;
+  min-height: 52px;
+  border: 0;
   border-radius: 10px;
-  background: #fff7ed;
-  color: #92400e;
-  font-size: 17px;
+  background: linear-gradient(160deg, #b45309 0%, #f59e0b 100%);
+  color: #ffffff;
+  font-size: 18px;
   font-weight: 900;
+  box-shadow: 0 2px 0 #92400e;
+  transition: transform 0.08s;
+}
+
+.extrasRunBtn:active {
+  transform: translateY(2px);
+  box-shadow: none;
 }
 
 /* ── Player picker list ───────────────────────────────────────────────────── */
 
 .playerPickerList {
   display: grid;
-  gap: 5px;
+  gap: 6px;
   max-height: 220px;
   overflow-y: auto;
 }
 
 .playerPickerItem {
-  border: 1px solid #d9e2ec;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #102a43;
-  padding: 10px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 11px 14px;
   font-size: 14px;
   font-weight: 700;
   text-align: left;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: border-color 0.12s;
+}
+
+.playerPickerItem:hover {
+  border-color: #93c5fd;
+  background: #f0f7ff;
 }
 
 .playerPickerItem.selected {
-  border-color: #0f62fe;
+  border-color: #2563eb;
   background: #eff6ff;
-  color: #0f62fe;
+  color: #1d4ed8;
+  font-weight: 800;
 }
+
+/* ── Responsive tweaks ────────────────────────────────────────────────────── */
 
 @media (max-width: 520px) {
   .outcomeGrid {
@@ -837,11 +1031,25 @@
   }
 
   .outcomeBtn {
-    min-height: 48px;
-    font-size: 15px;
+    min-height: 54px;
+    font-size: 18px;
+    border-radius: 10px;
   }
 
   .scoreboardRuns {
-    font-size: 26px;
+    font-size: 40px;
+  }
+
+  .extrasRunGrid {
+    gap: 5px;
+  }
+
+  .dismissalGrid {
+    gap: 6px;
+  }
+
+  .dismissalCard {
+    padding: 11px 6px;
+    font-size: 13px;
   }
 }
