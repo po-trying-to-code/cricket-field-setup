@@ -1595,6 +1595,13 @@ export default function App() {
   const [analysisMode, setAnalysisMode] = useState<"batsman" | "bowler">("batsman");
   const [scorecardInningsIdx, setScorecardInningsIdx] = useState(0);
   const [allMatchesAnalysis, setAllMatchesAnalysis] = useState(false);
+  const [showWicketModal, setShowWicketModal] = useState(false);
+  const [wicketDismissal, setWicketDismissal] = useState({ type: "bowled", fielder: "" });
+  const [showExtrasModal, setShowExtrasModal] = useState<{ type: "wide" | "no-ball" | "bye" | "leg-bye" } | null>(null);
+  const [showEndOfOverModal, setShowEndOfOverModal] = useState(false);
+  const [nextBowlerInput, setNextBowlerInput] = useState("");
+  const [showPlayerPicker, setShowPlayerPicker] = useState<{ for: "striker" | "nonStriker" | "bowler" } | null>(null);
+  const [playerPickerInput, setPlayerPickerInput] = useState("");
   const [activeFormationId, setActiveFormationId] = useState("");
   const [formationName, setFormationName] = useState("My Formation");
   const [teamName, setTeamName] = useState("");
@@ -1944,6 +1951,12 @@ export default function App() {
   const commitDelivery = (pd: PendingDelivery, zone?: ScoringZone) => {
     if (!activeMatch || activeInningsIdx < 0) return;
 
+    const isLegalDelivery = !pd.isExtra || pd.extraType === "bye" || pd.extraType === "leg-bye";
+    const currentLegalInOver = currentOver?.deliveries.filter(
+      (d) => !d.isExtra || d.extraType === "bye" || d.extraType === "leg-bye",
+    ).length ?? 0;
+    const overWillComplete = isLegalDelivery && currentLegalInOver === 5 && currentOver !== null;
+
     const inn = activeMatch.innings[activeInningsIdx];
     const delivery: Delivery = {
       id: genId('del'),
@@ -2067,6 +2080,11 @@ export default function App() {
           currentBatsmen = [currentBatsmen[1], currentBatsmen[0]];
         }
 
+        // Clear dismissed batsman so the picker appears for next batsman
+        if (pd.isWicket) {
+          currentBatsmen = currentBatsmen.map((n) => (n === delivery.batsmanName ? "" : n)) as [string, string];
+        }
+
         return { ...inn, overs, batsmen, bowlers, extras, currentBatsmen };
       });
 
@@ -2075,6 +2093,10 @@ export default function App() {
 
     setPendingDelivery(null);
     setZonePickerOpen(false);
+    if (overWillComplete) {
+      setShowEndOfOverModal(true);
+      setNextBowlerInput("");
+    }
   };
 
   const openZonePicker = (pd: PendingDelivery) => {
@@ -2180,6 +2202,18 @@ export default function App() {
       }
       return { ...m, innings, updatedAt: new Date().toISOString() };
     });
+  };
+
+  const confirmEndOfOver = () => {
+    if (!nextBowlerInput.trim()) return;
+    updateActiveMatch((m) => ({
+      ...m,
+      innings: m.innings.map((inn, i) =>
+        i === activeInningsIdx ? { ...inn, currentBowler: nextBowlerInput.trim() } : inn,
+      ),
+    }));
+    setShowEndOfOverModal(false);
+    setNextBowlerInput("");
   };
 
   const endMatch = (result: string) => {
@@ -4532,22 +4566,16 @@ export default function App() {
                 <div className="batsmanRow batsmanRowStriker">
                   <span className="strikeIndicator">*</span>
                   <span className="batsmanName">
-                    {striker || (
-                      <input
-                        className="playerNameInput"
-                        placeholder="Striker name"
-                        onBlur={(e) => {
-                          if (!e.target.value) return;
-                          updateActiveMatch((m) => ({
-                            ...m,
-                            innings: m.innings.map((inn, i) =>
-                              i === activeInningsIdx
-                                ? { ...inn, currentBatsmen: [e.target.value, inn.currentBatsmen[1]] }
-                                : inn,
-                            ),
-                          }));
-                        }}
-                      />
+                    {striker ? (
+                      striker
+                    ) : (
+                      <button
+                        type="button"
+                        className="pickPlayerBtn"
+                        onClick={() => setShowPlayerPicker({ for: "striker" })}
+                      >
+                        Choose striker
+                      </button>
                     )}
                   </span>
                   {strikerStats && (
@@ -4559,22 +4587,16 @@ export default function App() {
                 <div className="batsmanRow">
                   <span className="strikeIndicator"> </span>
                   <span className="batsmanName">
-                    {nonStriker || (
-                      <input
-                        className="playerNameInput"
-                        placeholder="Non-striker name"
-                        onBlur={(e) => {
-                          if (!e.target.value) return;
-                          updateActiveMatch((m) => ({
-                            ...m,
-                            innings: m.innings.map((inn, i) =>
-                              i === activeInningsIdx
-                                ? { ...inn, currentBatsmen: [inn.currentBatsmen[0], e.target.value] }
-                                : inn,
-                            ),
-                          }));
-                        }}
-                      />
+                    {nonStriker ? (
+                      nonStriker
+                    ) : (
+                      <button
+                        type="button"
+                        className="pickPlayerBtn"
+                        onClick={() => setShowPlayerPicker({ for: "nonStriker" })}
+                      >
+                        Choose non-striker
+                      </button>
                     )}
                   </span>
                   {nonStrikerStats && (
@@ -4592,19 +4614,13 @@ export default function App() {
                 {inn.currentBowler ? (
                   <span className="bowlerName">{inn.currentBowler}</span>
                 ) : (
-                  <input
-                    className="playerNameInput"
-                    placeholder="Bowler name"
-                    onBlur={(e) => {
-                      if (!e.target.value) return;
-                      updateActiveMatch((m) => ({
-                        ...m,
-                        innings: m.innings.map((inn, i) =>
-                          i === activeInningsIdx ? { ...inn, currentBowler: e.target.value } : inn,
-                        ),
-                      }));
-                    }}
-                  />
+                  <button
+                    type="button"
+                    className="pickPlayerBtn"
+                    onClick={() => setShowPlayerPicker({ for: "bowler" })}
+                  >
+                    Choose bowler
+                  </button>
                 )}
                 {bowlerStats && (
                   <span className="bowlerStats">
@@ -4641,30 +4657,16 @@ export default function App() {
                   type="button"
                   className="outcomeBtn wicket"
                   onClick={() => {
-                    // Show inline dismissal form then record
-                    const t = window.prompt("Dismissal type (bowled/caught/lbw/run-out/stumped/hit-wicket/other):", "bowled");
-                    if (t === null) return;
-                    const f = t === "caught" || t === "stumped" || t === "run-out"
-                      ? window.prompt("Fielder name (optional):", "") ?? ""
-                      : "";
-                    const pd: PendingDelivery = {
-                      runs: 0,
-                      isBoundary: false,
-                      isExtra: false,
-                      extraRuns: 0,
-                      isWicket: true,
-                      dismissalType: t || "bowled",
-                      fielderName: f || undefined,
-                    };
-                    commitDelivery(pd);
+                    setWicketDismissal({ type: "bowled", fielder: "" });
+                    setShowWicketModal(true);
                   }}
                 >
                   W
                 </button>
-                <button type="button" className="outcomeBtn extra" onClick={() => recordOutcome(0, undefined, "wide")}>Wd</button>
-                <button type="button" className="outcomeBtn extra" onClick={() => recordOutcome(0, undefined, "no-ball")}>Nb</button>
-                <button type="button" className="outcomeBtn extra" onClick={() => recordOutcome(0, undefined, "bye")}>B</button>
-                <button type="button" className="outcomeBtn extra" onClick={() => recordOutcome(0, undefined, "leg-bye")}>Lb</button>
+                <button type="button" className="outcomeBtn extra" onClick={() => setShowExtrasModal({ type: "wide" })}>Wd</button>
+                <button type="button" className="outcomeBtn extra" onClick={() => setShowExtrasModal({ type: "no-ball" })}>Nb</button>
+                <button type="button" className="outcomeBtn extra" onClick={() => setShowExtrasModal({ type: "bye" })}>B</button>
+                <button type="button" className="outcomeBtn extra" onClick={() => setShowExtrasModal({ type: "leg-bye" })}>Lb</button>
                 <button type="button" className="outcomeBtn undo" onClick={undoLastDelivery}>Undo</button>
               </div>
 
@@ -4678,15 +4680,234 @@ export default function App() {
                   <button
                     type="button"
                     className="endMatchBtn"
-                    onClick={() => {
-                      const r = window.prompt("Match result:", `${battingTeam} won`) ?? "";
-                      if (r) endMatch(r);
-                    }}
+                    onClick={() => endMatch(`${battingTeam} won`)}
                   >
                     End match
                   </button>
                 )}
               </div>
+
+              {/* Wicket dismissal modal */}
+              {showWicketModal && (
+                <div className="modalOverlay">
+                  <div className="modalBox">
+                    <h3 className="modalTitle">How was the wicket taken?</h3>
+                    <div className="dismissalGrid">
+                      {(["bowled", "caught", "lbw", "run-out", "stumped", "hit-wicket", "other"] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          className={`dismissalCard${wicketDismissal.type === t ? " selected" : ""}`}
+                          onClick={() => setWicketDismissal((d) => ({ ...d, type: t }))}
+                        >
+                          {t.charAt(0).toUpperCase() + t.slice(1).replace("-", " ")}
+                        </button>
+                      ))}
+                    </div>
+                    {(wicketDismissal.type === "caught" || wicketDismissal.type === "stumped" || wicketDismissal.type === "run-out") && (
+                      <input
+                        className="modalInput"
+                        placeholder="Fielder name (optional)"
+                        value={wicketDismissal.fielder}
+                        onChange={(e) => setWicketDismissal((d) => ({ ...d, fielder: e.target.value }))}
+                      />
+                    )}
+                    <div className="modalActions">
+                      <button type="button" className="modalCancel" onClick={() => setShowWicketModal(false)}>Cancel</button>
+                      <button
+                        type="button"
+                        className="modalConfirm wicketConfirm"
+                        onClick={() => {
+                          const pd: PendingDelivery = {
+                            runs: 0, isBoundary: false, isExtra: false, extraRuns: 0,
+                            isWicket: true,
+                            dismissalType: wicketDismissal.type,
+                            fielderName: wicketDismissal.fielder.trim() || undefined,
+                          };
+                          commitDelivery(pd);
+                          setShowWicketModal(false);
+                          setWicketDismissal({ type: "bowled", fielder: "" });
+                        }}
+                      >
+                        Record wicket
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Extras run picker modal */}
+              {showExtrasModal && (() => {
+                const isBasePenalty = showExtrasModal.type === "wide" || showExtrasModal.type === "no-ball";
+                const label = showExtrasModal.type === "wide" ? "Wide" : showExtrasModal.type === "no-ball" ? "No Ball" : showExtrasModal.type === "bye" ? "Bye" : "Leg Bye";
+                const runOptions = isBasePenalty ? [1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6];
+                return (
+                  <div className="modalOverlay">
+                    <div className="modalBox">
+                      <h3 className="modalTitle">{label} — how many runs?</h3>
+                      <div className="extrasRunGrid">
+                        {runOptions.map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            className="extrasRunBtn"
+                            onClick={() => {
+                              const pd: PendingDelivery = {
+                                runs: 0, isBoundary: false,
+                                isExtra: true, extraType: showExtrasModal.type,
+                                extraRuns: n, isWicket: false,
+                              };
+                              commitDelivery(pd);
+                              setShowExtrasModal(null);
+                            }}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                      <button type="button" className="modalCancel" onClick={() => setShowExtrasModal(null)}>Cancel</button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* End of over modal */}
+              {showEndOfOverModal && (() => {
+                const bowlingTeamPlayers = inn.battingTeam === activeMatch.teamA
+                  ? activeMatch.teamBPlayers
+                  : activeMatch.teamAPlayers;
+                return (
+                  <div className="modalOverlay">
+                    <div className="modalBox">
+                      <h3 className="modalTitle">Over complete!</h3>
+                      <p className="modalSubtitle">Pick the next bowler</p>
+                      {bowlingTeamPlayers.length > 0 && (
+                        <div className="playerPickerList">
+                          {bowlingTeamPlayers
+                            .filter((n) => n !== inn.currentBowler)
+                            .map((n) => (
+                              <button
+                                key={n}
+                                type="button"
+                                className={`playerPickerItem${nextBowlerInput === n ? " selected" : ""}`}
+                                onClick={() => setNextBowlerInput(n)}
+                              >
+                                {n}
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                      <input
+                        className="modalInput"
+                        placeholder="Or type bowler name…"
+                        value={nextBowlerInput}
+                        onChange={(e) => setNextBowlerInput(e.target.value)}
+                      />
+                      <div className="modalActions">
+                        <button type="button" className="modalCancel" onClick={() => setShowEndOfOverModal(false)}>Later</button>
+                        <button
+                          type="button"
+                          className="modalConfirm"
+                          disabled={!nextBowlerInput.trim()}
+                          onClick={confirmEndOfOver}
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Player picker modal */}
+              {showPlayerPicker && (() => {
+                const isBowler = showPlayerPicker.for === "bowler";
+                const battingTeamPlayers = inn.battingTeam === activeMatch.teamA
+                  ? activeMatch.teamAPlayers
+                  : activeMatch.teamBPlayers;
+                const bowlingTeamPlayers = inn.battingTeam === activeMatch.teamA
+                  ? activeMatch.teamBPlayers
+                  : activeMatch.teamAPlayers;
+                const playerList = isBowler ? bowlingTeamPlayers : battingTeamPlayers;
+                const title = isBowler
+                  ? `Choose bowler (${bowlingTeam})`
+                  : showPlayerPicker.for === "striker"
+                  ? "Choose striker"
+                  : "Choose non-striker";
+                const takenNames = new Set(
+                  isBowler ? [inn.currentBowler] : inn.currentBatsmen.filter(Boolean),
+                );
+                const applyPlayerPick = (n: string) => {
+                  if (showPlayerPicker.for === "striker") {
+                    updateActiveMatch((m) => ({
+                      ...m,
+                      innings: m.innings.map((inn, i) =>
+                        i === activeInningsIdx
+                          ? { ...inn, currentBatsmen: [n, inn.currentBatsmen[1]] }
+                          : inn,
+                      ),
+                    }));
+                  } else if (showPlayerPicker.for === "nonStriker") {
+                    updateActiveMatch((m) => ({
+                      ...m,
+                      innings: m.innings.map((inn, i) =>
+                        i === activeInningsIdx
+                          ? { ...inn, currentBatsmen: [inn.currentBatsmen[0], n] }
+                          : inn,
+                      ),
+                    }));
+                  } else {
+                    updateActiveMatch((m) => ({
+                      ...m,
+                      innings: m.innings.map((inn, i) =>
+                        i === activeInningsIdx ? { ...inn, currentBowler: n } : inn,
+                      ),
+                    }));
+                  }
+                  setPlayerPickerInput("");
+                  setShowPlayerPicker(null);
+                };
+                return (
+                  <div className="modalOverlay">
+                    <div className="modalBox">
+                      <h3 className="modalTitle">{title}</h3>
+                      {playerList.length > 0 && (
+                        <div className="playerPickerList">
+                          {playerList
+                            .filter((n) => !takenNames.has(n))
+                            .map((n) => (
+                              <button
+                                key={n}
+                                type="button"
+                                className="playerPickerItem"
+                                onClick={() => applyPlayerPick(n)}
+                              >
+                                {n}
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                      <input
+                        className="modalInput"
+                        placeholder="Or type a name…"
+                        value={playerPickerInput}
+                        onChange={(e) => setPlayerPickerInput(e.target.value)}
+                      />
+                      <div className="modalActions">
+                        <button type="button" className="modalCancel" onClick={() => { setShowPlayerPicker(null); setPlayerPickerInput(""); }}>Cancel</button>
+                        <button
+                          type="button"
+                          className="modalConfirm"
+                          disabled={!playerPickerInput.trim()}
+                          onClick={() => applyPlayerPick(playerPickerInput.trim())}
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Zone picker overlay */}
               {zonePickerOpen && (
