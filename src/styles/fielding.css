@@ -7,11 +7,11 @@
 .savedSelect {
   width: 100%;
   min-width: 0;
-  border: 1px solid #cfd8e3;
+  border: 1.5px solid #c8dfc8;
   border-radius: 8px;
   padding: 10px;
   font-size: 16px;
-  color: #102a43;
+  color: #0a2e1a;
   background: #ffffff;
 }
 
@@ -28,9 +28,11 @@
 }
 
 .identityFields span {
-  color: #486581;
-  font-size: 12px;
+  color: #3d5c3d;
+  font-size: 11px;
   font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .saveControls {
@@ -49,15 +51,17 @@
   border: 0;
   border-radius: 8px;
   padding: 10px 14px;
-  background: #0f62fe;
-  color: white;
-  font-weight: 700;
+  background: linear-gradient(135deg, #1a5c36 0%, #2d8653 100%);
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 2px 6px rgba(26, 92, 54, 0.28);
 }
 
 .topbar button:disabled,
 .actions button:disabled {
-  background: #bcccdc;
-  color: #f4f7fb;
+  background: #cbd5e1;
+  color: #94a3b8;
+  box-shadow: none;
 }
 
 @media (max-width: 520px) {
@@ -171,10 +175,10 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid #bcccdc;
+  border: 1.5px solid #c8dfc8;
   border-radius: 8px;
   background: #ffffff;
-  color: #243b53;
+  color: #0a2e1a;
   padding: 8px 10px;
   font-size: 14px;
   font-weight: 800;
@@ -183,17 +187,17 @@
 .batterToggle input {
   width: 18px;
   height: 18px;
-  accent-color: #0f62fe;
+  accent-color: #1a5c36;
 }
 
 .presetControl {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid #bcccdc;
+  border: 1.5px solid #c8dfc8;
   border-radius: 8px;
   background: #ffffff;
-  color: #243b53;
+  color: #0a2e1a;
   padding: 8px 10px;
   font-size: 14px;
   font-weight: 800;
@@ -201,24 +205,25 @@
 
 .presetControl select {
   max-width: min(58vw, 260px);
-  border: 1px solid #cfd8e3;
+  border: 1.5px solid #c8dfc8;
   border-radius: 6px;
   background: #ffffff;
-  color: #102a43;
+  color: #0a2e1a;
   padding: 5px 8px;
   font-size: 14px;
   font-weight: 700;
 }
 
 .bowlerPlans {
-  border: 1px solid #d9e2ec;
-  border-radius: 8px;
+  border: 1px solid #c8dfc8;
+  border-radius: 10px;
   background: #ffffff;
-  padding: 8px;
+  padding: 10px;
+  box-shadow: 0 1px 4px rgba(10, 46, 26, 0.06);
 }
 
 .bowlerPlans summary {
-  color: #243b53;
+  color: #0a2e1a;
   cursor: pointer;
   font-size: 14px;
   font-weight: 800;
@@ -247,9 +252,11 @@
 }
 
 .bowlerPlanField span {
-  color: #486581;
-  font-size: 12px;
+  color: #3d5c3d;
+  font-size: 11px;
   font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .bowlerPlanField input,
@@ -257,10 +264,10 @@
 .bowlerPlanField textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid #cfd8e3;
+  border: 1.5px solid #c8dfc8;
   border-radius: 8px;
   background: #ffffff;
-  color: #102a43;
+  color: #0a2e1a;
   padding: 8px 10px;
   font-size: 16px;
 }
@@ -281,17 +288,19 @@
   min-width: 0;
   border: 0;
   border-radius: 8px;
-  background: #0f62fe;
+  background: linear-gradient(135deg, #1a5c36 0%, #2d8653 100%);
   color: #ffffff;
   padding: 8px 6px;
   font-size: 12px;
   font-weight: 800;
   line-height: 1.15;
+  box-shadow: 0 2px 4px rgba(26, 92, 54, 0.25);
 }
 
 .bowlerPlanActions button:disabled {
-  background: #bcccdc;
-  color: #f4f7fb;
+  background: #cbd5e1;
+  color: #94a3b8;
+  box-shadow: none;
 }
 
 .bowlerPlanControls,
@@ -488,16 +497,17 @@
   width: clamp(32px, 8.5vw, 44px);
   min-height: clamp(32px, 8.5vw, 44px);
   border-radius: 999px;
-  border: 1.5px solid #0b3d91;
-  background: #ffffff;
-  color: #0b3d91;
+  border: 2px solid #d4a017;
+  background: #0c1f4a;
+  color: #fbbf24;
   display: grid;
   place-items: center;
   padding: 3px 4px;
   font-size: clamp(7px, 1.7vw, 9px);
   line-height: 1.05;
-  font-weight: 800;
+  font-weight: 900;
   text-align: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
 }
 
 .player span {
@@ -511,12 +521,14 @@
 }
 
 .player.dragging {
-  box-shadow: 0 0 0 4px rgba(15, 98, 254, 0.25);
+  box-shadow: 0 0 0 4px rgba(212, 160, 23, 0.5);
   z-index: 2;
 }
 
 .player.fixedPlayer {
   cursor: default;
+  border-color: #fbbf24;
+  background: #1a5c36;
 }
 
 .assignmentConfirm {
@@ -524,12 +536,12 @@
   z-index: 4;
   width: min(210px, 72%);
   transform: translate(-50%, -50%);
-  border: 2px solid #0b3d91;
-  border-radius: 8px;
+  border: 2px solid #1a5c36;
+  border-radius: 10px;
   background: #ffffff;
-  color: #102a43;
-  padding: 8px;
-  box-shadow: 0 10px 24px rgba(16, 42, 67, 0.25);
+  color: #0a2e1a;
+  padding: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.30);
   text-align: center;
 }
 
@@ -549,26 +561,26 @@
 .assignmentConfirm button {
   border: 0;
   border-radius: 6px;
-  background: #0f62fe;
+  background: linear-gradient(135deg, #1a5c36 0%, #2d8653 100%);
   color: #ffffff;
-  padding: 6px 10px;
+  padding: 7px 12px;
   font-size: 12px;
   font-weight: 800;
 }
 
 .assignmentConfirm button + button {
-  background: #829ab1;
+  background: #94a3b8;
 }
 
 .assignmentConfirm button:disabled {
-  background: #bcccdc;
-  color: #f4f7fb;
+  background: #cbd5e1;
+  color: #94a3b8;
 }
 
 .selector {
   display: grid;
   gap: 8px;
-  border-top: 1px solid #d9e2ec;
+  border-top: 1px solid #c8dfc8;
   padding-top: 10px;
 }
 
@@ -581,17 +593,17 @@
 
 .selectorHeader h1 {
   margin: 0;
-  color: #102a43;
+  color: #0a2e1a;
   font-size: 18px;
-  font-weight: 800;
-  letter-spacing: 0;
+  font-weight: 900;
+  letter-spacing: -0.3px;
 }
 
 .selectorHeader span {
   min-width: 48px;
   border-radius: 999px;
-  background: #d9e2ec;
-  color: #243b53;
+  background: #e8f5e9;
+  color: #1a5c36;
   padding: 4px 10px;
   font-size: 13px;
   font-weight: 800;
@@ -600,7 +612,7 @@
 
 .selectorHint {
   margin: 0;
-  color: #486581;
+  color: #3d5c3d;
   font-size: 12px;
   font-weight: 700;
   line-height: 1.3;
@@ -618,9 +630,9 @@
 .positionOption {
   flex: 0 0 auto;
   border-radius: 999px;
-  border: 1px solid #bcccdc;
+  border: 1.5px solid #c8dfc8;
   background: #ffffff;
-  color: #243b53;
+  color: #0a2e1a;
   padding: 8px 10px;
   font-size: 13px;
   font-weight: 700;
@@ -638,14 +650,14 @@
   grid-template-columns: minmax(0, 1fr) 32px;
   align-items: center;
   gap: 6px;
-  border: 1px solid #38b2ac;
+  border: 1.5px solid #a3d9b8;
   border-radius: 8px;
-  background: #e6fffa;
+  background: #f0faf4;
   padding: 6px;
 }
 
 .selectedRow.duplicate {
-  border-color: #d64545;
+  border-color: #ef4444;
   background: #fff1f1;
 }
 
@@ -657,9 +669,11 @@
 }
 
 .selectedRow label span {
-  color: #044e54;
-  font-size: 12px;
+  color: #1a5c36;
+  font-size: 11px;
   font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -668,10 +682,10 @@
 .selectedRow input {
   width: 100%;
   min-width: 0;
-  border: 1px solid #9ae6b4;
+  border: 1.5px solid #c8dfc8;
   border-radius: 6px;
   background: #ffffff;
-  color: #102a43;
+  color: #0a2e1a;
   padding: 7px 8px;
   font-size: 14px;
 }
@@ -691,18 +705,18 @@
 
 .nameChips button {
   flex: 0 0 auto;
-  border: 1px solid #0f62fe;
+  border: 1.5px solid #2d8653;
   border-radius: 999px;
-  background: #eef5ff;
-  color: #0b3d91;
-  padding: 5px 8px;
+  background: #f0faf4;
+  color: #1a5c36;
+  padding: 5px 10px;
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
 }
 
 .selectedRow.duplicate input {
-  border-color: #d64545;
+  border-color: #ef4444;
 }
 
 .removePosition {
@@ -712,7 +726,7 @@
   height: 32px;
   border: 0;
   border-radius: 6px;
-  background: #044e54;
+  background: #0a2e1a;
   color: #ffffff;
   font-size: 14px;
   font-weight: 800;
@@ -725,21 +739,22 @@
   width: 42px;
   height: 32px;
   border-radius: 6px;
-  background: #d9e2ec;
-  color: #486581;
+  background: #e8f5e9;
+  color: #1a5c36;
   font-size: 10px;
   font-weight: 800;
 }
 
 .customPositions {
-  border: 1px solid #d9e2ec;
-  border-radius: 8px;
+  border: 1px solid #c8dfc8;
+  border-radius: 10px;
   background: #ffffff;
-  padding: 8px;
+  padding: 10px;
+  box-shadow: 0 1px 4px rgba(10, 46, 26, 0.06);
 }
 
 .customPositions summary {
-  color: #243b53;
+  color: #0a2e1a;
   cursor: pointer;
   font-size: 14px;
   font-weight: 800;
@@ -761,10 +776,10 @@
 
 .warning {
   margin: 0;
-  border: 1px solid #d64545;
+  border: 1.5px solid #fca5a5;
   border-radius: 8px;
-  background: #fff1f1;
-  color: #8a1f1f;
+  background: #fff1f2;
+  color: #991b1b;
   padding: 8px 10px;
   font-size: 13px;
   font-weight: 800;
@@ -772,9 +787,9 @@
 }
 
 .warning.advisory {
-  border-color: #d69e2e;
-  background: #fffaf0;
-  color: #744210;
+  border-color: #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
 }
 
 .positionOption {
@@ -785,13 +800,14 @@
 }
 
 .positionOption.selected {
-  background: #eef2ff;
-  border-color: #7c3aed;
-  color: #4c1d95;
+  background: #0a2e1a;
+  border-color: #0a2e1a;
+  color: #fbbf24;
+  font-weight: 800;
 }
 
 .positionOption:disabled {
-  opacity: 0.58;
+  opacity: 0.48;
 }
 
 .actions {
@@ -805,5 +821,5 @@
   text-align: center;
   margin: 0;
   font-size: 13px;
-  color: #486581;
+  color: #3d5c3d;
 }
