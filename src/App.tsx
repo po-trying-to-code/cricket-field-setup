@@ -25,6 +25,7 @@ type SavedFormation = {
   players: SelectedPosition[];
   isLeftHander: boolean;
   isEndOverRotated: boolean;
+  substitutes: string[];
 };
 
 type BowlerScenario = {
@@ -372,6 +373,9 @@ const normalizeSavedFormation = (data: unknown): SavedFormation | null => {
     ),
     isLeftHander,
     isEndOverRotated,
+    substitutes: Array.isArray(formation.substitutes)
+      ? formation.substitutes.filter((s): s is string => typeof s === "string")
+      : [],
   };
 };
 
@@ -439,6 +443,8 @@ export default function App() {
   const [fieldSuggestion, setFieldSuggestion] = useState<FieldSuggestion | null>(null);
   const fieldRef = useRef<HTMLDivElement | null>(null);
   const bowlerPlanFieldRef = useRef<HTMLDivElement | null>(null);
+  const [substitutes, setSubstitutes] = useState<string[]>([]);
+  const [substituteDraft, setSubstituteDraft] = useState("");
 
   useEffect(() => {
     const savedRaw = localStorage.getItem(SAVED_FORMATIONS_KEY);
@@ -482,6 +488,7 @@ export default function App() {
         setTeamName(legacyFormation.teamName);
         setIsLeftHander(legacyFormation.isLeftHander);
         setIsEndOverRotated(legacyFormation.isEndOverRotated);
+        setSubstitutes(legacyFormation.substitutes);
       }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
@@ -600,6 +607,7 @@ export default function App() {
       players,
       isLeftHander,
       isEndOverRotated,
+      substitutes,
     };
 
     setSavedFormations((prev) => {
@@ -626,6 +634,7 @@ export default function App() {
       players,
       isLeftHander,
       isEndOverRotated,
+      substitutes,
     };
 
     setSavedFormations((prev) => {
@@ -647,6 +656,7 @@ export default function App() {
     setPlayers(savedFormation.players);
     setIsLeftHander(savedFormation.isLeftHander);
     setIsEndOverRotated(savedFormation.isEndOverRotated);
+    setSubstitutes(savedFormation.substitutes);
   };
 
   const deleteFormation = () => {
@@ -659,6 +669,17 @@ export default function App() {
     });
     setActiveFormationId("");
     alert("Formation deleted locally");
+  };
+
+  const addSubstitute = () => {
+    const name = substituteDraft.trim();
+    if (!name) return;
+    setSubstitutes((prev) => [...prev, name]);
+    setSubstituteDraft("");
+  };
+
+  const removeSubstitute = (index: number) => {
+    setSubstitutes((prev) => prev.filter((_, i) => i !== index));
   };
 
   const selectBowlerPlan = (id: string) => {
@@ -1567,6 +1588,17 @@ export default function App() {
             <span className="batterIcon batterTop" />
             <span className="batterIcon batterBottom" />
           </div>
+          {FIELD_POSITIONS.map((position) => {
+            const pos = getFieldPosition(position, isLeftHander, isEndOverRotated);
+            return (
+              <div
+                key={`shade-${position.name}`}
+                className="positionShade"
+                style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                aria-hidden="true"
+              />
+            );
+          })}
           {players.map((p) => (
             <button
               key={p.id}
@@ -1713,6 +1745,40 @@ export default function App() {
             })}
           </div>
         </details>
+
+        <div className="substitutes">
+          <div className="selectorHeader">
+            <h2 className="substitutesTitle">Bench / Substitutes</h2>
+            {substitutes.length > 0 && <span>{substitutes.length}</span>}
+          </div>
+          <p className="selectorHint">Squad players not in the starting XI — saved with the formation.</p>
+          <div className="substituteAdd">
+            <input
+              value={substituteDraft}
+              onChange={(e) => setSubstituteDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") addSubstitute(); }}
+              placeholder="Player name"
+              aria-label="Substitute player name"
+            />
+            <button type="button" onClick={addSubstitute}>Add</button>
+          </div>
+          {substitutes.length > 0 && (
+            <div className="substituteList">
+              {substitutes.map((name, index) => (
+                <div key={`sub-${index}`} className="substituteRow">
+                  <span>{name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeSubstitute(index)}
+                    aria-label={`Remove ${name} from bench`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       <details className="bowlerPlans">
@@ -1831,6 +1897,17 @@ export default function App() {
               <span className="batterIcon batterTop" />
               <span className="batterIcon batterBottom" />
             </div>
+            {FIELD_POSITIONS.map((position) => {
+              const pos = getFieldPosition(position, bowlerPlanIsLeftHander, bowlerPlanIsEndOverRotated);
+              return (
+                <div
+                  key={`shade-${position.name}`}
+                  className="positionShade"
+                  style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                  aria-hidden="true"
+                />
+              );
+            })}
             {bowlerPlanPlayers.map((p) => (
               <button
                 key={p.id}
