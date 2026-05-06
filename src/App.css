@@ -349,12 +349,15 @@ textarea {
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   background:
-    radial-gradient(circle at center, transparent 0 58%, rgba(255, 255, 255, 0.08) 58.4% 58.8%, transparent 59.2%),
-    radial-gradient(circle at center, rgba(255, 255, 255, 0.18) 0 1px, transparent 2px),
-    radial-gradient(circle at center, #57b75b 0%, #3a9844 54%, #2f8438 72%, #266d30 100%);
-  background-size: auto, 18px 18px, auto;
-  border: 4px solid #1d5a26;
-  box-shadow: inset 0 0 0 8px #f7f7f2, inset 0 0 0 13px rgba(29, 90, 38, 0.55);
+    radial-gradient(circle at center, transparent 0 58%, rgba(255, 255, 255, 0.07) 58.4% 58.8%, transparent 59.2%),
+    repeating-linear-gradient(
+      -45deg,
+      transparent 0px 26px,
+      rgba(0, 0, 0, 0.09) 26px 52px
+    ),
+    radial-gradient(circle at center, #267a2c 0%, #1a5c20 48%, #144817 68%, #0d3010 100%);
+  border: 4px solid #092210;
+  box-shadow: inset 0 0 0 8px rgba(255, 255, 255, 0.9), inset 0 0 0 14px rgba(9, 34, 16, 0.75);
   overflow: hidden;
   touch-action: none;
 }
@@ -368,12 +371,12 @@ textarea {
 
 .boundaryRope {
   inset: 2.5%;
-  border: 2px dashed rgba(255, 255, 255, 0.85);
+  border: 2px dashed rgba(255, 255, 255, 0.9);
 }
 
 .outerRing {
   inset: 14%;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.22);
 }
 
 @media (max-width: 520px) {
@@ -405,8 +408,20 @@ textarea {
 .innerCircle {
   position: absolute;
   inset: 28%;
-  border: 2px dashed rgba(255, 255, 255, 0.55);
+  border: 2px dashed rgba(255, 255, 255, 0.65);
   border-radius: 50%;
+}
+
+.positionShade {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.11);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .pitch {
@@ -844,4 +859,89 @@ textarea {
   margin: 0;
   font-size: 13px;
   color: #486581;
+}
+
+/* Substitutes / bench */
+
+.substitutes {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid #d9e2ec;
+  padding-top: 10px;
+}
+
+.substitutesTitle {
+  margin: 0;
+  color: #102a43;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.substituteAdd {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.substituteAdd input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #102a43;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.substituteAdd button {
+  border: 0;
+  border-radius: 8px;
+  background: #486581;
+  color: #ffffff;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.substituteList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px;
+}
+
+.substituteRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #bcccdc;
+  border-radius: 8px;
+  background: #f0f4f8;
+  padding: 6px 8px;
+}
+
+.substituteRow span {
+  font-size: 13px;
+  font-weight: 700;
+  color: #243b53;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.substituteRow button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: #627d98;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
 }
