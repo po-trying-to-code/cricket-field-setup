@@ -1524,7 +1524,7 @@ const normalizeMatchScore = (data: unknown): MatchScore | null => {
 const isPlannerTemplateTab = (
   sectionId: PlannerTabId,
 ): sectionId is PlannerSectionId =>
-  sectionId !== "overview" && sectionId !== "fielding" && sectionId !== "video-library" && sectionId !== "scoring";
+  sectionId !== "overview" && sectionId !== "fielding" && sectionId !== "video-library" && sectionId !== "scoring" && sectionId !== "scheduler";
 
 const createPlannerSection = (sectionId: PlannerSectionId): PlannerSection => {
   const now = new Date().toISOString();
