@@ -78,7 +78,6 @@ type SchedulerConfig = {
   matchDays: number[];
   publicHolidayDates: string[];
   format: string;
-  rounds: "single" | "double";
   blackoutDates: string[];
 };
 
@@ -1697,13 +1696,10 @@ const buildSchedulerFixtures = (config: SchedulerConfig): GeneratedFixture[] => 
   // build per-division round lists
   const divisionRounds = config.divisions.map((div) => {
     const rrRounds = generateRoundRobin(div.teams);
-    if (config.rounds === "double") {
-      const second = rrRounds.map((round) =>
-        round.map((m) => ({ home: m.away, away: m.home })),
-      );
-      return { div, rounds: [...rrRounds, ...second] };
-    }
-    return { div, rounds: rrRounds };
+    const second = rrRounds.map((round) =>
+      round.map((m) => ({ home: m.away, away: m.home })),
+    );
+    return { div, rounds: [...rrRounds, ...second] };
   });
 
   // interleave: div0-r0, div1-r0, div2-r0, div0-r1 …
@@ -1762,7 +1758,6 @@ const normalizeSchedulerResult = (data: unknown): SchedulerResult | null => {
       matchDays: Array.isArray(c.matchDays) ? c.matchDays.filter((d): d is number => typeof d === "number") : [0, 6],
       publicHolidayDates: Array.isArray(c.publicHolidayDates) ? c.publicHolidayDates.filter((d): d is string => typeof d === "string") : [],
       format: typeof c.format === "string" ? c.format : "T20",
-      rounds: c.rounds === "double" ? "double" : "single",
       blackoutDates: Array.isArray(c.blackoutDates) ? c.blackoutDates.filter((d): d is string => typeof d === "string") : [],
     },
     fixtures: Array.isArray(r.fixtures) ? r.fixtures.filter((f): f is GeneratedFixture =>
@@ -1848,7 +1843,6 @@ export default function App() {
       matchDays: [0, 6] as number[],
       publicHolidayDates: [] as string[],
       format: "T20",
-      rounds: "single" as "single" | "double",
       divisions: [] as SchedulerDivision[],
       blackoutDates: [] as string[],
       blackoutDraft: "",
@@ -1984,7 +1978,7 @@ export default function App() {
             matchDays: c.matchDays,
             publicHolidayDates: c.publicHolidayDates,
             format: c.format,
-            rounds: c.rounds,
+
             divisions: c.divisions,
             blackoutDates: c.blackoutDates,
             blackoutDraft: "",
@@ -2861,7 +2855,7 @@ export default function App() {
       matchDays: schedulerForm.matchDays,
       publicHolidayDates: schedulerForm.publicHolidayDates,
       format: schedulerForm.format,
-      rounds: schedulerForm.rounds,
+
       blackoutDates: schedulerForm.blackoutDates,
     };
     const fixtures = buildSchedulerFixtures(config);
@@ -5717,22 +5711,6 @@ export default function App() {
                       <option value="Friendly">Friendly</option>
                     </select>
                   </label>
-                  <label className="schLabel">
-                    Rounds
-                    <select
-                      className="schInput"
-                      value={schedulerForm.rounds}
-                      onChange={(e) =>
-                        setSchedulerForm((f) => ({
-                          ...f,
-                          rounds: e.target.value as "single" | "double",
-                        }))
-                      }
-                    >
-                      <option value="single">Single round-robin</option>
-                      <option value="double">Double round-robin</option>
-                    </select>
-                  </label>
                 </div>
               </div>
 
@@ -5807,13 +5785,13 @@ export default function App() {
                   <p className="schedulerHint">No divisions yet — add one to get started.</p>
                 )}
                 {schedulerForm.divisions.map((div, di) => {
-                  const rounds =
+                  const halfRounds =
                     div.teams.length < 2
                       ? 0
                       : div.teams.length % 2 === 0
                         ? div.teams.length - 1
                         : div.teams.length;
-                  const totalRounds = schedulerForm.rounds === "double" ? rounds * 2 : rounds;
+                  const totalRounds = halfRounds * 2; // always home + away
                   return (
                     <div className="schedulerDivision" key={div.id}>
                       <div className="schedulerDivisionHeader">
