@@ -410,3 +410,82 @@
 .schWarnBadge {
   color: #d97706;
 }
+
+.schFormatPill {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: #0284c7;
+}
+
+.schFormatPill.odi {
+  background: #7c3aed;
+}
+
+.schClubSection {
+  display: grid;
+  gap: 4px;
+}
+
+.schSectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.schTeamCheckList {
+  display: grid;
+  gap: 4px;
+}
+
+.schTeamCheckRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.schClubGroupLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #374151;
+  margin-top: 6px;
+}
+
+.schAddClubRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+}
+
+.schDivisionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d1e7d8;
+  border-left: 3px solid #0284c7;
+  border-radius: 8px;
+  padding: 8px 10px;
+  flex-wrap: wrap;
+}
+
+.schDivisionRow.odi {
+  border-left-color: #7c3aed;
+}
+
+.schDivisionName {
+  flex: 1;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.schDivTeamPicker {
+  padding: 6px 8px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}

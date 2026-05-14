@@ -62,22 +62,35 @@ type PlannerTabId =
   | "scheduler";
 type PlannerSectionId = Exclude<PlannerTabId, "overview" | "fielding" | "video-library" | "scoring" | "scheduler">;
 
-type SchedulerTeam = { id: string; name: string; homeVenue: string };
+type SchedulerGround = { id: string; name: string };
+
+type SchedulerClubTeam = {
+  id: string;
+  name: string;
+};
+
+type SchedulerClub = {
+  id: string;
+  name: string;
+  teams: SchedulerClubTeam[];
+  grounds: SchedulerGround[];
+};
 
 type SchedulerDivision = {
   id: string;
   name: string;
-  teams: SchedulerTeam[];
+  format: "T20" | "50 Overs" | "Club" | "Friendly";
+  teamIds: string[];
 };
 
 type SchedulerConfig = {
   name: string;
+  clubs: SchedulerClub[];
   divisions: SchedulerDivision[];
   startDate: string;
   endDate: string;
   matchDays: number[];
   publicHolidayDates: string[];
-  format: string;
   blackoutDates: string[];
 };
 
@@ -85,10 +98,17 @@ type GeneratedFixture = {
   id: string;
   divisionId: string;
   divisionName: string;
+  format: string;
   round: number;
   date: string;
+  homeTeamId: string;
   homeTeam: string;
+  homeClubId: string;
+  homeClubName: string;
+  awayTeamId: string;
   awayTeam: string;
+  awayClubId: string;
+  awayClubName: string;
   venue: string;
   isBye: boolean;
 };
@@ -1654,17 +1674,17 @@ const getAvailableDates = (
 };
 
 const generateRoundRobin = (
-  teams: SchedulerTeam[],
-): Array<Array<{ home: SchedulerTeam; away: SchedulerTeam }>> => {
+  teams: { id: string; name: string }[],
+): Array<Array<{ home: { id: string; name: string }; away: { id: string; name: string } }>> => {
   if (teams.length < 2) return [];
-  const list = teams.length % 2 === 1 ? [...teams, { id: "bye", name: "BYE", homeVenue: "" }] : [...teams];
+  const list = teams.length % 2 === 1 ? [...teams, { id: "bye", name: "BYE" }] : [...teams];
   const n = list.length;
   const rotating = list.slice(0, n - 1);
   const fixed = list[n - 1];
-  const rounds: Array<Array<{ home: SchedulerTeam; away: SchedulerTeam }>> = [];
+  const rounds: Array<Array<{ home: { id: string; name: string }; away: { id: string; name: string } }>> = [];
 
   for (let r = 0; r < n - 1; r++) {
-    const round: Array<{ home: SchedulerTeam; away: SchedulerTeam }> = [];
+    const round: Array<{ home: { id: string; name: string }; away: { id: string; name: string } }> = [];
     const first = rotating[0];
     if (first.id !== "bye" && fixed.id !== "bye") {
       round.push({ home: first, away: fixed });
@@ -1693,45 +1713,146 @@ const buildSchedulerFixtures = (config: SchedulerConfig): GeneratedFixture[] => 
     config.blackoutDates,
   );
 
-  // build per-division round lists
+  // Build lookup: teamId -> club
+  const teamToClub = new Map<string, SchedulerClub>();
+  for (const club of config.clubs) {
+    for (const team of club.teams) {
+      teamToClub.set(team.id, club);
+    }
+  }
+
+  // Build per-division round lists, resolving team objects from clubs
   const divisionRounds = config.divisions.map((div) => {
-    const rrRounds = generateRoundRobin(div.teams);
+    const teams: { id: string; name: string }[] = div.teamIds
+      .map((tid) => {
+        const club = teamToClub.get(tid);
+        if (!club) return null;
+        const t = club.teams.find((ct) => ct.id === tid);
+        return t ? { id: t.id, name: t.name } : null;
+      })
+      .filter((t): t is { id: string; name: string } => t !== null);
+
+    const rrRounds = generateRoundRobin(teams);
     const second = rrRounds.map((round) =>
       round.map((m) => ({ home: m.away, away: m.home })),
     );
     return { div, rounds: [...rrRounds, ...second] };
   });
 
-  // interleave: div0-r0, div1-r0, div2-r0, div0-r1 …
-  const fixtures: GeneratedFixture[] = [];
-  const cursors = divisionRounds.map(() => 0);
-  let dateIdx = 0;
+  // Ground index per club for cycling
+  const groundIdx = new Map<string, number>();
 
+  // Date usage tracking: date -> clubId -> { formats: Set<string>; homeCount: number }
+  const dateUsage = new Map<string, Map<string, { formats: Set<string>; homeCount: number }>>();
+
+  const getDateClubUsage = (date: string, clubId: string) => {
+    if (!dateUsage.has(date)) dateUsage.set(date, new Map());
+    const dateMap = dateUsage.get(date)!;
+    if (!dateMap.has(clubId)) dateMap.set(clubId, { formats: new Set(), homeCount: 0 });
+    return dateMap.get(clubId)!;
+  };
+
+  const canAssign = (date: string, homeClubId: string, awayClubId: string, format: string): boolean => {
+    for (const clubId of [homeClubId, awayClubId]) {
+      if (!dateUsage.has(date)) continue;
+      const dateMap = dateUsage.get(date)!;
+      if (!dateMap.has(clubId)) continue;
+      const usage = dateMap.get(clubId)!;
+      // Format conflict: can't mix T20 and 50 Overs for same club on same day
+      if (usage.formats.size > 0 && !usage.formats.has(format)) {
+        const hasConflict = Array.from(usage.formats).some(
+          (f) => (f === "T20" || f === "50 Overs") && (format === "T20" || format === "50 Overs") && f !== format,
+        );
+        if (hasConflict) return false;
+      }
+    }
+    // Home limit for home club
+    if (dateUsage.has(date)) {
+      const dateMap = dateUsage.get(date)!;
+      if (dateMap.has(homeClubId)) {
+        const usage = dateMap.get(homeClubId)!;
+        const maxHome = format === "T20" && Array.from(usage.formats).every((f) => f === "T20") ? 2 : 1;
+        if (usage.homeCount >= maxHome) return false;
+      }
+    }
+    return true;
+  };
+
+  const recordUsage = (date: string, homeClubId: string, awayClubId: string, format: string) => {
+    const homeUsage = getDateClubUsage(date, homeClubId);
+    homeUsage.formats.add(format);
+    homeUsage.homeCount++;
+    const awayUsage = getDateClubUsage(date, awayClubId);
+    awayUsage.formats.add(format);
+  };
+
+  // Build fixture queue: interleave div0-r0, div1-r0, div0-r1 ...
+  const fixtureQueue: Array<{
+    div: SchedulerDivision;
+    roundIdx: number;
+    match: { home: { id: string; name: string }; away: { id: string; name: string } };
+  }> = [];
+
+  const cursors = divisionRounds.map(() => 0);
   while (true) {
-    let scheduledAny = false;
+    let addedAny = false;
     for (let di = 0; di < divisionRounds.length; di++) {
       const { div, rounds } = divisionRounds[di];
       if (cursors[di] >= rounds.length) continue;
       const round = rounds[cursors[di]];
-      const date = availableDates[dateIdx] ?? "";
       for (const m of round) {
-        fixtures.push({
-          id: `${div.id}-r${cursors[di]}-${m.home.id}-${m.away.id}`,
-          divisionId: div.id,
-          divisionName: div.name,
-          round: cursors[di] + 1,
-          date,
-          homeTeam: m.home.name,
-          awayTeam: m.away.name,
-          venue: m.home.homeVenue || "",
-          isBye: false,
-        });
+        fixtureQueue.push({ div, roundIdx: cursors[di], match: m });
       }
       cursors[di]++;
-      scheduledAny = true;
+      addedAny = true;
     }
-    if (!scheduledAny) break;
-    if (availableDates[dateIdx]) dateIdx++;
+    if (!addedAny) break;
+  }
+
+  // Assign dates with club constraints
+  const fixtures: GeneratedFixture[] = [];
+  for (const { div, roundIdx, match } of fixtureQueue) {
+    const homeClub = teamToClub.get(match.home.id);
+    const awayClub = teamToClub.get(match.away.id);
+    const homeClubId = homeClub?.id ?? "";
+    const awayClubId = awayClub?.id ?? "";
+    const format = div.format;
+
+    let assignedDate = "";
+    for (const date of availableDates) {
+      if (canAssign(date, homeClubId, awayClubId, format)) {
+        assignedDate = date;
+        recordUsage(date, homeClubId, awayClubId, format);
+        break;
+      }
+    }
+
+    // Resolve venue: cycle through home club's grounds
+    let venue = "";
+    if (homeClub && homeClub.grounds.length > 0) {
+      const idx = groundIdx.get(homeClubId) ?? 0;
+      venue = homeClub.grounds[idx % homeClub.grounds.length].name;
+      groundIdx.set(homeClubId, idx + 1);
+    }
+
+    fixtures.push({
+      id: `${div.id}-r${roundIdx}-${match.home.id}-${match.away.id}`,
+      divisionId: div.id,
+      divisionName: div.name,
+      format,
+      round: roundIdx + 1,
+      date: assignedDate,
+      homeTeamId: match.home.id,
+      homeTeam: match.home.name,
+      homeClubId,
+      homeClubName: homeClub?.name ?? "",
+      awayTeamId: match.away.id,
+      awayTeam: match.away.name,
+      awayClubId,
+      awayClubName: awayClub?.name ?? "",
+      venue,
+      isBye: false,
+    });
   }
 
   return fixtures;
@@ -1742,22 +1863,39 @@ const normalizeSchedulerResult = (data: unknown): SchedulerResult | null => {
   const r = data as Partial<SchedulerResult>;
   if (!r.config || typeof r.config !== "object") return null;
   const c = r.config as Partial<SchedulerConfig>;
+  const validFormats = ["T20", "50 Overs", "Club", "Friendly"] as const;
   return {
     config: {
       name: typeof c.name === "string" ? c.name : "",
-      divisions: Array.isArray(c.divisions) ? c.divisions.map((d) => ({
-        id: typeof d?.id === "string" ? d.id : String(Math.random()),
-        name: typeof d?.name === "string" ? d.name : "",
-        teams: Array.isArray(d?.teams) ? d.teams.map((t: unknown) => {
-          const team = t as Partial<SchedulerTeam>;
-          return { id: typeof team.id === "string" ? team.id : String(Math.random()), name: typeof team.name === "string" ? team.name : "", homeVenue: typeof team.homeVenue === "string" ? team.homeVenue : "" };
-        }) : [],
-      })) : [],
+      clubs: Array.isArray(c.clubs) ? c.clubs.map((club: unknown) => {
+        const cl = club as Partial<SchedulerClub>;
+        return {
+          id: typeof cl.id === "string" ? cl.id : String(Math.random()),
+          name: typeof cl.name === "string" ? cl.name : "",
+          teams: Array.isArray(cl.teams) ? cl.teams.map((t: unknown) => {
+            const team = t as Partial<SchedulerClubTeam>;
+            return { id: typeof team.id === "string" ? team.id : String(Math.random()), name: typeof team.name === "string" ? team.name : "" };
+          }) : [],
+          grounds: Array.isArray(cl.grounds) ? cl.grounds.map((g: unknown) => {
+            const gnd = g as Partial<SchedulerGround>;
+            return { id: typeof gnd.id === "string" ? gnd.id : String(Math.random()), name: typeof gnd.name === "string" ? gnd.name : "" };
+          }) : [],
+        };
+      }) : [],
+      divisions: Array.isArray(c.divisions) ? c.divisions.map((d: unknown) => {
+        const div = d as Partial<SchedulerDivision>;
+        const fmt = validFormats.includes(div.format as typeof validFormats[number]) ? div.format as typeof validFormats[number] : "T20";
+        return {
+          id: typeof div.id === "string" ? div.id : String(Math.random()),
+          name: typeof div.name === "string" ? div.name : "",
+          format: fmt,
+          teamIds: Array.isArray(div.teamIds) ? div.teamIds.filter((tid): tid is string => typeof tid === "string") : [],
+        };
+      }) : [],
       startDate: typeof c.startDate === "string" ? c.startDate : "",
       endDate: typeof c.endDate === "string" ? c.endDate : "",
       matchDays: Array.isArray(c.matchDays) ? c.matchDays.filter((d): d is number => typeof d === "number") : [0, 6],
       publicHolidayDates: Array.isArray(c.publicHolidayDates) ? c.publicHolidayDates.filter((d): d is string => typeof d === "string") : [],
-      format: typeof c.format === "string" ? c.format : "T20",
       blackoutDates: Array.isArray(c.blackoutDates) ? c.blackoutDates.filter((d): d is string => typeof d === "string") : [],
     },
     fixtures: Array.isArray(r.fixtures) ? r.fixtures.filter((f): f is GeneratedFixture =>
@@ -1772,12 +1910,12 @@ const exportSchedulerText = (result: SchedulerResult): void => {
     if (!grouped.has(f.date)) grouped.set(f.date, []);
     grouped.get(f.date)!.push(f);
   }
-  const lines: string[] = [`=== ${result.config.name || "Season Schedule"} — ${result.config.format} ===`, ""];
+  const lines: string[] = [`=== ${result.config.name || "Season Schedule"} ===`, ""];
   for (const [date, fixtures] of Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b))) {
     lines.push(date ? formatSchedulerDate(date) : "Unscheduled");
     for (const f of fixtures) {
       const venue = f.venue ? ` — ${f.venue}` : "";
-      lines.push(`  [${f.divisionName}] ${f.homeTeam} vs ${f.awayTeam}${venue}`);
+      lines.push(`  [${f.divisionName} · ${f.format}] ${f.homeTeam} (${f.homeClubName}) vs ${f.awayTeam} (${f.awayClubName})${venue}`);
     }
     lines.push("");
   }
@@ -1842,15 +1980,18 @@ export default function App() {
       endDate,
       matchDays: [0, 6] as number[],
       publicHolidayDates: [] as string[],
-      format: "T20",
+      clubs: [] as SchedulerClub[],
       divisions: [] as SchedulerDivision[],
       blackoutDates: [] as string[],
       blackoutDraft: "",
       publicHolidayDraft: "",
     };
   });
-  const [divTeamDrafts, setDivTeamDrafts] = useState<Record<string, string>>({});
-  const [divVenueDrafts, setDivVenueDrafts] = useState<Record<string, string>>({});
+  const [clubNameDraft, setClubNameDraft] = useState("");
+  const [teamDrafts, setTeamDrafts] = useState<Record<string, string>>({});
+  const [groundDrafts, setGroundDrafts] = useState<Record<string, string>>({});
+  const [divNameDraft, setDivNameDraft] = useState("");
+  const [divFormatDraft, setDivFormatDraft] = useState("T20");
 
   const [showWicketModal, setShowWicketModal] = useState(false);
   const [wicketDismissal, setWicketDismissal] = useState({ type: "bowled", fielder: "" });
@@ -1977,8 +2118,7 @@ export default function App() {
             endDate: c.endDate,
             matchDays: c.matchDays,
             publicHolidayDates: c.publicHolidayDates,
-            format: c.format,
-
+            clubs: c.clubs,
             divisions: c.divisions,
             blackoutDates: c.blackoutDates,
             blackoutDraft: "",
@@ -2849,13 +2989,12 @@ export default function App() {
   const handleGenerateFixtures = () => {
     const config: SchedulerConfig = {
       name: schedulerForm.name || "Season",
+      clubs: schedulerForm.clubs,
       divisions: schedulerForm.divisions,
       startDate: schedulerForm.startDate,
       endDate: schedulerForm.endDate,
       matchDays: schedulerForm.matchDays,
       publicHolidayDates: schedulerForm.publicHolidayDates,
-      format: schedulerForm.format,
-
       blackoutDates: schedulerForm.blackoutDates,
     };
     const fixtures = buildSchedulerFixtures(config);
@@ -2867,7 +3006,7 @@ export default function App() {
   const canGenerate =
     schedulerForm.startDate &&
     schedulerForm.endDate &&
-    schedulerForm.divisions.some((d) => d.teams.length >= 2);
+    schedulerForm.divisions.some((d) => d.teamIds.length >= 2);
 
   const schedulerGroupedFixtures = useMemo(() => {
     if (!schedulerResult) return [];
@@ -2896,45 +3035,115 @@ export default function App() {
     [schedulerResult],
   );
 
-  const addDivision = () => {
-    const id = `div-${Date.now()}`;
-    setSchedulerForm((f) => ({ ...f, divisions: [...f.divisions, { id, name: "", teams: [] }] }));
-    setDivTeamDrafts((d) => ({ ...d, [id]: "" }));
-    setDivVenueDrafts((d) => ({ ...d, [id]: "" }));
-  };
-
-  const removeDivision = (idx: number) => {
-    setSchedulerForm((f) => ({ ...f, divisions: f.divisions.filter((_, i) => i !== idx) }));
-  };
-
-  const renameDivision = (idx: number, name: string) => {
-    setSchedulerForm((f) => ({
-      ...f,
-      divisions: f.divisions.map((d, i) => (i === idx ? { ...d, name } : d)),
-    }));
-  };
-
-  const addTeam = (divIdx: number) => {
-    const divId = schedulerForm.divisions[divIdx].id;
-    const name = (divTeamDrafts[divId] || "").trim();
+  const addClub = () => {
+    const name = clubNameDraft.trim();
     if (!name) return;
-    const homeVenue = (divVenueDrafts[divId] || "").trim();
+    const id = `club-${Date.now()}`;
     setSchedulerForm((f) => ({
       ...f,
-      divisions: f.divisions.map((d, i) =>
-        i === divIdx ? { ...d, teams: [...d.teams, { id: `team-${Date.now()}`, name, homeVenue }] } : d,
-      ),
+      clubs: [...f.clubs, { id, name, teams: [], grounds: [] }],
     }));
-    setDivTeamDrafts((d) => ({ ...d, [divId]: "" }));
-    setDivVenueDrafts((d) => ({ ...d, [divId]: "" }));
+    setTeamDrafts((d) => ({ ...d, [id]: "" }));
+    setGroundDrafts((d) => ({ ...d, [id]: "" }));
+    setClubNameDraft("");
   };
 
-  const removeTeam = (divIdx: number, teamIdx: number) => {
+  const removeClub = (clubIdx: number) => {
+    const club = schedulerForm.clubs[clubIdx];
+    const removedTeamIds = new Set(club.teams.map((t) => t.id));
     setSchedulerForm((f) => ({
       ...f,
-      divisions: f.divisions.map((d, i) =>
-        i === divIdx ? { ...d, teams: d.teams.filter((_, ti) => ti !== teamIdx) } : d,
+      clubs: f.clubs.filter((_, i) => i !== clubIdx),
+      divisions: f.divisions.map((d) => ({
+        ...d,
+        teamIds: d.teamIds.filter((tid) => !removedTeamIds.has(tid)),
+      })),
+    }));
+  };
+
+  const renameClub = (clubIdx: number, name: string) => {
+    setSchedulerForm((f) => ({
+      ...f,
+      clubs: f.clubs.map((c, i) => (i === clubIdx ? { ...c, name } : c)),
+    }));
+  };
+
+  const addTeamToClub = (clubIdx: number) => {
+    const clubId = schedulerForm.clubs[clubIdx].id;
+    const name = (teamDrafts[clubId] || "").trim();
+    if (!name) return;
+    setSchedulerForm((f) => ({
+      ...f,
+      clubs: f.clubs.map((c, i) =>
+        i === clubIdx ? { ...c, teams: [...c.teams, { id: `team-${Date.now()}`, name }] } : c,
       ),
+    }));
+    setTeamDrafts((d) => ({ ...d, [clubId]: "" }));
+  };
+
+  const removeTeamFromClub = (clubIdx: number, teamIdx: number) => {
+    const teamId = schedulerForm.clubs[clubIdx].teams[teamIdx].id;
+    setSchedulerForm((f) => ({
+      ...f,
+      clubs: f.clubs.map((c, i) =>
+        i === clubIdx ? { ...c, teams: c.teams.filter((_, ti) => ti !== teamIdx) } : c,
+      ),
+      divisions: f.divisions.map((d) => ({
+        ...d,
+        teamIds: d.teamIds.filter((tid) => tid !== teamId),
+      })),
+    }));
+  };
+
+  const addGroundToClub = (clubIdx: number) => {
+    const clubId = schedulerForm.clubs[clubIdx].id;
+    const name = (groundDrafts[clubId] || "").trim();
+    if (!name) return;
+    setSchedulerForm((f) => ({
+      ...f,
+      clubs: f.clubs.map((c, i) =>
+        i === clubIdx ? { ...c, grounds: [...c.grounds, { id: `gnd-${Date.now()}`, name }] } : c,
+      ),
+    }));
+    setGroundDrafts((d) => ({ ...d, [clubId]: "" }));
+  };
+
+  const removeGroundFromClub = (clubIdx: number, groundIdx: number) => {
+    setSchedulerForm((f) => ({
+      ...f,
+      clubs: f.clubs.map((c, i) =>
+        i === clubIdx ? { ...c, grounds: c.grounds.filter((_, gi) => gi !== groundIdx) } : c,
+      ),
+    }));
+  };
+
+  const addDivision = () => {
+    const name = divNameDraft.trim();
+    if (!name) return;
+    setSchedulerForm((f) => ({
+      ...f,
+      divisions: [
+        ...f.divisions,
+        { id: `div-${Date.now()}`, name, format: divFormatDraft as SchedulerDivision["format"], teamIds: [] },
+      ],
+    }));
+    setDivNameDraft("");
+    setDivFormatDraft("T20");
+  };
+
+  const removeDivision = (divIdx: number) => {
+    setSchedulerForm((f) => ({ ...f, divisions: f.divisions.filter((_, i) => i !== divIdx) }));
+  };
+
+  const toggleTeamInDivision = (divIdx: number, teamId: string) => {
+    setSchedulerForm((f) => ({
+      ...f,
+      divisions: f.divisions.map((d, i) => {
+        if (i !== divIdx) return d;
+        return d.teamIds.includes(teamId)
+          ? { ...d, teamIds: d.teamIds.filter((tid) => tid !== teamId) }
+          : { ...d, teamIds: [...d.teamIds, teamId] };
+      }),
     }));
   };
 
@@ -5685,7 +5894,7 @@ export default function App() {
                 </button>
               </header>
 
-              {/* Card 1: League info */}
+              {/* Card 1: Season Info */}
               <div className="schedulerCard">
                 <label className="schLabel">
                   Season / League name
@@ -5697,25 +5906,6 @@ export default function App() {
                     placeholder="e.g. 2026 Summer Season"
                   />
                 </label>
-                <div className="schedulerRow2">
-                  <label className="schLabel">
-                    Format
-                    <select
-                      className="schInput"
-                      value={schedulerForm.format}
-                      onChange={(e) => setSchedulerForm((f) => ({ ...f, format: e.target.value }))}
-                    >
-                      <option value="T20">T20</option>
-                      <option value="50 Overs">50 Overs</option>
-                      <option value="Club">Club</option>
-                      <option value="Friendly">Friendly</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-
-              {/* Card 2: Season dates + match days */}
-              <div className="schedulerCard">
                 <div className="schedulerRow2">
                   <label className="schLabel">
                     Start date
@@ -5775,81 +5965,152 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Card 3: Divisions */}
+              {/* Card 2: Clubs & Teams */}
               <div className="schedulerCard">
                 <div className="schedulerCardHeader">
-                  <h3>Divisions &amp; Teams</h3>
-                  <button type="button" className="schAddBtn" onClick={addDivision}>+ Add Division</button>
+                  <h3>Clubs &amp; Teams</h3>
                 </div>
-                {schedulerForm.divisions.length === 0 && (
-                  <p className="schedulerHint">No divisions yet — add one to get started.</p>
+                <div className="schAddClubRow">
+                  <input
+                    className="schInput"
+                    placeholder="Club name, e.g. Eagles CC"
+                    value={clubNameDraft}
+                    onChange={(e) => setClubNameDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addClub(); } }}
+                  />
+                  <button type="button" className="schAddBtn" onClick={addClub}>+ Add Club</button>
+                </div>
+                {schedulerForm.clubs.length === 0 && (
+                  <p className="schedulerHint">No clubs yet — add one to get started.</p>
                 )}
-                {schedulerForm.divisions.map((div, di) => {
-                  const halfRounds =
-                    div.teams.length < 2
-                      ? 0
-                      : div.teams.length % 2 === 0
-                        ? div.teams.length - 1
-                        : div.teams.length;
-                  const totalRounds = halfRounds * 2; // always home + away
-                  return (
-                    <div className="schedulerDivision" key={div.id}>
-                      <div className="schedulerDivisionHeader">
-                        <input
-                          className="schInput"
-                          value={div.name}
-                          onChange={(e) => renameDivision(di, e.target.value)}
-                          placeholder="Division name"
-                        />
-                        <button type="button" className="schRemoveBtn" onClick={() => removeDivision(di)}>
-                          Remove
-                        </button>
-                      </div>
-                      <div className="schedulerTeamList">
-                        {div.teams.map((team, ti) => (
-                          <span key={team.id} className="schedulerTeamChip">
-                            <span className="schTeamName">{team.name}</span>
-                            {team.homeVenue && (
-                              <span className="schTeamVenue">{team.homeVenue}</span>
-                            )}
-                            <button type="button" onClick={() => removeTeam(di, ti)}>×</button>
+                {schedulerForm.clubs.map((club, ci) => (
+                  <div className="schedulerDivision" key={club.id}>
+                    <div className="schedulerDivisionHeader">
+                      <input
+                        className="schInput"
+                        value={club.name}
+                        onChange={(e) => renameClub(ci, e.target.value)}
+                        placeholder="Club name"
+                      />
+                      <button type="button" className="schRemoveBtn" onClick={() => removeClub(ci)}>
+                        Remove
+                      </button>
+                    </div>
+                    {/* Grounds */}
+                    <div className="schClubSection">
+                      <span className="schSectionLabel">Home Grounds</span>
+                      <div className="schedulerTagList">
+                        {club.grounds.map((gnd, gi) => (
+                          <span key={gnd.id} className="schedulerTag">
+                            {gnd.name}
+                            <button type="button" onClick={() => removeGroundFromClub(ci, gi)}>×</button>
                           </span>
                         ))}
                       </div>
-                      <div className="schedulerTeamAdd schTeamAddRow">
+                      <div className="schedulerTeamAdd">
                         <input
                           className="schInput"
-                          placeholder="Team name"
-                          value={divTeamDrafts[div.id] || ""}
-                          onChange={(e) =>
-                            setDivTeamDrafts((d) => ({ ...d, [div.id]: e.target.value }))
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              addTeam(di);
-                            }
-                          }}
+                          placeholder="Ground name"
+                          value={groundDrafts[club.id] || ""}
+                          onChange={(e) => setGroundDrafts((d) => ({ ...d, [club.id]: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGroundToClub(ci); } }}
                         />
-                        <input
-                          className="schInput"
-                          placeholder="Home venue (optional)"
-                          value={divVenueDrafts[div.id] || ""}
-                          onChange={(e) =>
-                            setDivVenueDrafts((d) => ({ ...d, [div.id]: e.target.value }))
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              addTeam(di);
-                            }
-                          }}
-                        />
-                        <button type="button" className="schAddBtn" onClick={() => addTeam(di)}>Add</button>
+                        <button type="button" className="schAddBtn" onClick={() => addGroundToClub(ci)}>Add</button>
                       </div>
-                      <p className="schedulerHint">
-                        {div.teams.length} team{div.teams.length !== 1 ? "s" : ""}
-                        {totalRounds > 0 ? ` · ${totalRounds} rounds` : ""}
+                    </div>
+                    {/* Teams */}
+                    <div className="schClubSection">
+                      <span className="schSectionLabel">Teams</span>
+                      <div className="schedulerTeamList">
+                        {club.teams.map((team, ti) => (
+                          <span key={team.id} className="schedulerTeamChip">
+                            <span className="schTeamName">{team.name}</span>
+                            <button type="button" onClick={() => removeTeamFromClub(ci, ti)}>×</button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="schedulerTeamAdd">
+                        <input
+                          className="schInput"
+                          placeholder="Team name, e.g. Eagles 1st XI"
+                          value={teamDrafts[club.id] || ""}
+                          onChange={(e) => setTeamDrafts((d) => ({ ...d, [club.id]: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTeamToClub(ci); } }}
+                        />
+                        <button type="button" className="schAddBtn" onClick={() => addTeamToClub(ci)}>Add</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Card 3: Divisions */}
+              <div className="schedulerCard">
+                <div className="schedulerCardHeader">
+                  <h3>Divisions</h3>
+                </div>
+                <div className="schedulerTeamAdd schTeamAddRow">
+                  <input
+                    className="schInput"
+                    placeholder="Division name, e.g. Premier T20"
+                    value={divNameDraft}
+                    onChange={(e) => setDivNameDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDivision(); } }}
+                  />
+                  <select
+                    className="schInput"
+                    value={divFormatDraft}
+                    onChange={(e) => setDivFormatDraft(e.target.value)}
+                  >
+                    <option value="T20">T20</option>
+                    <option value="50 Overs">50 Overs</option>
+                    <option value="Club">Club</option>
+                    <option value="Friendly">Friendly</option>
+                  </select>
+                  <button type="button" className="schAddBtn" onClick={addDivision}>Add Division</button>
+                </div>
+                {schedulerForm.divisions.length === 0 && (
+                  <p className="schedulerHint">No divisions yet — add one above.</p>
+                )}
+                {schedulerForm.divisions.map((div, di) => {
+                  const n = div.teamIds.length;
+                  const halfRounds = n < 2 ? 0 : n % 2 === 0 ? n - 1 : n;
+                  const totalRounds = halfRounds * 2;
+                  const isOdi = div.format === "50 Overs";
+                  return (
+                    <div className={`schDivisionRow${isOdi ? " odi" : ""}`} key={div.id}>
+                      <span className={`schFormatPill${isOdi ? " odi" : ""}`}>{div.format}</span>
+                      <span className="schDivisionName">{div.name || "Unnamed"}</span>
+                      <button type="button" className="schRemoveBtn" onClick={() => removeDivision(di)}>
+                        Remove
+                      </button>
+                      {/* Team picker: all teams grouped by club */}
+                      <div className="schDivTeamPicker" style={{ width: "100%", flexBasis: "100%" }}>
+                        <div className="schTeamCheckList">
+                          {schedulerForm.clubs.map((club) => (
+                            club.teams.length > 0 ? (
+                              <div key={club.id}>
+                                <div className="schClubGroupLabel">{club.name}</div>
+                                {club.teams.map((team) => (
+                                  <label key={team.id} className="schTeamCheckRow">
+                                    <input
+                                      type="checkbox"
+                                      checked={div.teamIds.includes(team.id)}
+                                      onChange={() => toggleTeamInDivision(di, team.id)}
+                                    />
+                                    {club.name} — {team.name}
+                                  </label>
+                                ))}
+                              </div>
+                            ) : null
+                          ))}
+                          {schedulerForm.clubs.every((c) => c.teams.length === 0) && (
+                            <p className="schedulerHint">Add teams to clubs first.</p>
+                          )}
+                        </div>
+                      </div>
+                      <p className="schedulerHint" style={{ width: "100%", flexBasis: "100%" }}>
+                        {n} team{n !== 1 ? "s" : ""}{totalRounds > 0 ? ` · ${totalRounds} rounds` : ""}
                       </p>
                     </div>
                   );
@@ -5948,10 +6209,13 @@ export default function App() {
                         <span className="schedulerDivBadge" style={{ background: color }}>
                           {f.divisionName || "Div"}
                         </span>
+                        <span className={`schFormatPill${f.format === "50 Overs" ? " odi" : ""}`}>{f.format}</span>
                         <span className="schedulerTeams">
                           <strong>{f.homeTeam}</strong>
+                          {f.homeClubName ? <em> ({f.homeClubName})</em> : null}
                           <em> vs </em>
                           <strong>{f.awayTeam}</strong>
+                          {f.awayClubName ? <em> ({f.awayClubName})</em> : null}
                         </span>
                         {f.venue && <span className="schedulerVenue">{f.venue}</span>}
                         <span className="schedulerRound">Rd {f.round}</span>
