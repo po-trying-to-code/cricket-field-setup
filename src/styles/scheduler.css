@@ -242,6 +242,24 @@
   gap: 6px;
 }
 
+.schTeamAddRow {
+  grid-template-columns: 1fr 1fr auto;
+}
+
+.schTeamName {
+  font-weight: 600;
+}
+
+.schTeamVenue {
+  font-size: 11px;
+  color: #6b7280;
+  padding-left: 2px;
+}
+
+.schTeamVenue::before {
+  content: "· ";
+}
+
 .schedulerHint {
   font-size: 11px;
   color: #6b7280;
