@@ -58,8 +58,50 @@ type PlannerTabId =
   | "video-library"
   | "fielding"
   | "match-notes"
-  | "scoring";
-type PlannerSectionId = Exclude<PlannerTabId, "overview" | "fielding" | "video-library" | "scoring">;
+  | "scoring"
+  | "scheduler";
+type PlannerSectionId = Exclude<PlannerTabId, "overview" | "fielding" | "video-library" | "scoring" | "scheduler">;
+
+type SchedulerTeam = { id: string; name: string };
+
+type SchedulerDivision = {
+  id: string;
+  name: string;
+  teams: SchedulerTeam[];
+};
+
+type SchedulerConfig = {
+  name: string;
+  divisions: SchedulerDivision[];
+  venues: string[];
+  startDate: string;
+  endDate: string;
+  matchDays: number[];
+  publicHolidayDates: string[];
+  format: string;
+  rounds: "single" | "double";
+  blackoutDates: string[];
+};
+
+type GeneratedFixture = {
+  id: string;
+  divisionId: string;
+  divisionName: string;
+  round: number;
+  date: string;
+  homeTeam: string;
+  awayTeam: string;
+  venue: string;
+  isBye: boolean;
+};
+
+type SchedulerResult = {
+  config: SchedulerConfig;
+  fixtures: GeneratedFixture[];
+  generatedAt: string;
+};
+
+type SchedulerViewId = "setup" | "fixtures";
 
 type ChecklistItem = {
   id: string;
@@ -425,6 +467,7 @@ const BOWLER_PLANS_KEY = "cricket-field-bowler-plans-v1";
 const PLANNER_SECTIONS_KEY = "cricket-team-planner-sections-v1";
 const SQUAD_PLAYERS_KEY = "cricket-squad-players-v1";
 const MATCH_SCORES_KEY = "cricket-match-scores-v1";
+const SCHEDULER_KEY = "cricket-scheduler-v1";
 const LOCAL_WORKSPACE_ID = "local-workspace";
 const LOCAL_USER_ID = "local-coach";
 const MAX_POSITIONS = 11;
@@ -476,6 +519,11 @@ const PLANNER_TABS: PlannerTab[] = [
     label: "Scoring",
     summary: "Live ball-by-ball scoring with boundary zone capture and analysis.",
   },
+  {
+    id: "scheduler",
+    label: "Scheduler",
+    summary: "Generate round-robin match fixtures for all divisions in the league.",
+  },
 ];
 
 const PLANNER_GROUPS: PlannerGroup[] = [
@@ -503,6 +551,11 @@ const PLANNER_GROUPS: PlannerGroup[] = [
     id: "match-planning",
     label: "Match Planning",
     tabs: ["fielding", "match-notes", "scoring"],
+  },
+  {
+    id: "admin",
+    label: "Admin",
+    tabs: ["scheduler"],
   },
 ];
 
@@ -1558,6 +1611,190 @@ const normalizePlannerSection = (data: unknown): PlannerSection | null => {
   };
 };
 
+// ── Scheduler helpers ─────────────────────────────────────────────────────────
+
+const getSeasonDefaults = () => {
+  const y = new Date().getFullYear();
+  return { startDate: `${y}-04-01`, endDate: `${y}-09-01` };
+};
+
+const toISODate = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const formatSchedulerDate = (iso: string): string => {
+  if (!iso) return "Unscheduled";
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short", year: "numeric" });
+};
+
+const getAvailableDates = (
+  startDate: string,
+  endDate: string,
+  matchDays: number[],
+  publicHolidayDates: string[],
+  blackoutDates: string[],
+): string[] => {
+  const blackoutSet = new Set(blackoutDates);
+  const holidaySet = new Set(
+    publicHolidayDates.filter((d) => d >= startDate && d <= endDate),
+  );
+  const dates: string[] = [];
+  const cursor = new Date(startDate + "T00:00:00");
+  const end = new Date(endDate + "T00:00:00");
+  while (cursor <= end) {
+    const iso = toISODate(cursor);
+    if ((matchDays.includes(cursor.getDay()) || holidaySet.has(iso)) && !blackoutSet.has(iso)) {
+      dates.push(iso);
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+};
+
+const generateRoundRobin = (
+  teams: SchedulerTeam[],
+): Array<Array<{ home: SchedulerTeam; away: SchedulerTeam }>> => {
+  if (teams.length < 2) return [];
+  const list = teams.length % 2 === 1 ? [...teams, { id: "bye", name: "BYE" }] : [...teams];
+  const n = list.length;
+  const rotating = list.slice(0, n - 1);
+  const fixed = list[n - 1];
+  const rounds: Array<Array<{ home: SchedulerTeam; away: SchedulerTeam }>> = [];
+
+  for (let r = 0; r < n - 1; r++) {
+    const round: Array<{ home: SchedulerTeam; away: SchedulerTeam }> = [];
+    const first = rotating[0];
+    if (first.id !== "bye" && fixed.id !== "bye") {
+      round.push({ home: first, away: fixed });
+    }
+    for (let i = 1; i <= n / 2 - 1; i++) {
+      const home = rotating[i];
+      const away = rotating[n - 2 - i];
+      if (home.id !== "bye" && away.id !== "bye") {
+        round.push({ home, away });
+      }
+    }
+    rounds.push(round);
+    // rotate: move last element of rotating to front
+    const last = rotating.pop()!;
+    rotating.unshift(last);
+  }
+  return rounds;
+};
+
+const buildSchedulerFixtures = (config: SchedulerConfig): GeneratedFixture[] => {
+  const availableDates = getAvailableDates(
+    config.startDate,
+    config.endDate,
+    config.matchDays,
+    config.publicHolidayDates,
+    config.blackoutDates,
+  );
+
+  // build per-division round lists
+  const divisionRounds = config.divisions.map((div) => {
+    const rrRounds = generateRoundRobin(div.teams);
+    if (config.rounds === "double") {
+      const second = rrRounds.map((round) =>
+        round.map((m) => ({ home: m.away, away: m.home })),
+      );
+      return { div, rounds: [...rrRounds, ...second] };
+    }
+    return { div, rounds: rrRounds };
+  });
+
+  // interleave: div0-r0, div1-r0, div2-r0, div0-r1 …
+  const fixtures: GeneratedFixture[] = [];
+  const cursors = divisionRounds.map(() => 0);
+  let dateIdx = 0;
+  let venueIdx = 0;
+
+  while (true) {
+    let scheduledAny = false;
+    for (let di = 0; di < divisionRounds.length; di++) {
+      const { div, rounds } = divisionRounds[di];
+      if (cursors[di] >= rounds.length) continue;
+      const round = rounds[cursors[di]];
+      const date = availableDates[dateIdx] ?? "";
+      for (const m of round) {
+        fixtures.push({
+          id: `${div.id}-r${cursors[di]}-${m.home.id}-${m.away.id}`,
+          divisionId: div.id,
+          divisionName: div.name,
+          round: cursors[di] + 1,
+          date,
+          homeTeam: m.home.name,
+          awayTeam: m.away.name,
+          venue: config.venues.length > 0 ? config.venues[venueIdx++ % config.venues.length] : "",
+          isBye: false,
+        });
+      }
+      cursors[di]++;
+      scheduledAny = true;
+    }
+    if (!scheduledAny) break;
+    if (availableDates[dateIdx]) dateIdx++;
+  }
+
+  return fixtures;
+};
+
+const normalizeSchedulerResult = (data: unknown): SchedulerResult | null => {
+  if (!data || typeof data !== "object") return null;
+  const r = data as Partial<SchedulerResult>;
+  if (!r.config || typeof r.config !== "object") return null;
+  const c = r.config as Partial<SchedulerConfig>;
+  return {
+    config: {
+      name: typeof c.name === "string" ? c.name : "",
+      divisions: Array.isArray(c.divisions) ? c.divisions.filter((d): d is SchedulerDivision =>
+        !!d && typeof d.id === "string" && typeof d.name === "string" && Array.isArray(d.teams)) : [],
+      venues: Array.isArray(c.venues) ? c.venues.filter((v): v is string => typeof v === "string") : [],
+      startDate: typeof c.startDate === "string" ? c.startDate : "",
+      endDate: typeof c.endDate === "string" ? c.endDate : "",
+      matchDays: Array.isArray(c.matchDays) ? c.matchDays.filter((d): d is number => typeof d === "number") : [0, 6],
+      publicHolidayDates: Array.isArray(c.publicHolidayDates) ? c.publicHolidayDates.filter((d): d is string => typeof d === "string") : [],
+      format: typeof c.format === "string" ? c.format : "T20",
+      rounds: c.rounds === "double" ? "double" : "single",
+      blackoutDates: Array.isArray(c.blackoutDates) ? c.blackoutDates.filter((d): d is string => typeof d === "string") : [],
+    },
+    fixtures: Array.isArray(r.fixtures) ? r.fixtures.filter((f): f is GeneratedFixture =>
+      !!f && typeof f.id === "string" && typeof f.divisionId === "string") : [],
+    generatedAt: typeof r.generatedAt === "string" ? r.generatedAt : new Date().toISOString(),
+  };
+};
+
+const exportSchedulerText = (result: SchedulerResult): void => {
+  const grouped = new Map<string, GeneratedFixture[]>();
+  for (const f of result.fixtures) {
+    if (!grouped.has(f.date)) grouped.set(f.date, []);
+    grouped.get(f.date)!.push(f);
+  }
+  const lines: string[] = [`=== ${result.config.name || "Season Schedule"} — ${result.config.format} ===`, ""];
+  for (const [date, fixtures] of Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b))) {
+    lines.push(date ? formatSchedulerDate(date) : "Unscheduled");
+    for (const f of fixtures) {
+      const venue = f.venue ? ` — ${f.venue}` : "";
+      lines.push(`  [${f.divisionName}] ${f.homeTeam} vs ${f.awayTeam}${venue}`);
+    }
+    lines.push("");
+  }
+  const text = lines.join("\n");
+  if (navigator.share) {
+    navigator.share({ title: result.config.name || "Fixtures", text }).catch(() => {});
+    return;
+  }
+  navigator.clipboard?.writeText(text).then(() => alert("Fixtures copied to clipboard.")).catch(() => {
+    alert(text);
+  });
+};
+
+// ── End scheduler helpers ──────────────────────────────────────────────────────
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<PlannerTabId>("overview");
   const [previewTemplateId, setPreviewTemplateId] = useState("");
@@ -1595,6 +1832,30 @@ export default function App() {
   const [analysisMode, setAnalysisMode] = useState<"batsman" | "bowler">("batsman");
   const [scorecardInningsIdx, setScorecardInningsIdx] = useState(0);
   const [allMatchesAnalysis, setAllMatchesAnalysis] = useState(false);
+
+  const [schedulerResult, setSchedulerResult] = useState<SchedulerResult | null>(null);
+  const [schedulerView, setSchedulerView] = useState<SchedulerViewId>("setup");
+  const [schedulerDivisionFilter, setSchedulerDivisionFilter] = useState("all");
+  const [schedulerForm, setSchedulerForm] = useState(() => {
+    const { startDate, endDate } = getSeasonDefaults();
+    return {
+      name: "",
+      startDate,
+      endDate,
+      matchDays: [0, 6] as number[],
+      publicHolidayDates: [] as string[],
+      format: "T20",
+      rounds: "single" as "single" | "double",
+      venues: [] as string[],
+      divisions: [] as SchedulerDivision[],
+      blackoutDates: [] as string[],
+      venueDraft: "",
+      blackoutDraft: "",
+      publicHolidayDraft: "",
+    };
+  });
+  const [divTeamDrafts, setDivTeamDrafts] = useState<Record<string, string>>({});
+
   const [showWicketModal, setShowWicketModal] = useState(false);
   const [wicketDismissal, setWicketDismissal] = useState({ type: "bowled", fielder: "" });
   const [showExtrasModal, setShowExtrasModal] = useState<{ type: "wide" | "no-ball" | "bye" | "leg-bye" } | null>(null);
@@ -1703,6 +1964,36 @@ export default function App() {
         }
       } catch {
         localStorage.removeItem(MATCH_SCORES_KEY);
+      }
+    }
+
+    const schedulerRaw = localStorage.getItem(SCHEDULER_KEY);
+    if (schedulerRaw) {
+      try {
+        const parsed = JSON.parse(schedulerRaw);
+        const result = normalizeSchedulerResult(parsed);
+        if (result) {
+          setSchedulerResult(result);
+          const c = result.config;
+          setSchedulerForm({
+            name: c.name,
+            startDate: c.startDate,
+            endDate: c.endDate,
+            matchDays: c.matchDays,
+            publicHolidayDates: c.publicHolidayDates,
+            format: c.format,
+            rounds: c.rounds,
+            venues: c.venues,
+            divisions: c.divisions,
+            blackoutDates: c.blackoutDates,
+            venueDraft: "",
+            blackoutDraft: "",
+            publicHolidayDraft: "",
+          });
+          setSchedulerView("fixtures");
+        }
+      } catch {
+        localStorage.removeItem(SCHEDULER_KEY);
       }
     }
 
@@ -2550,6 +2841,171 @@ export default function App() {
     setScenarioAction("");
     setScenarioNotes("");
     alert("Scenario deleted locally");
+  };
+
+  const persistSchedulerResult = (next: SchedulerResult | null) => {
+    if (next) {
+      localStorage.setItem(SCHEDULER_KEY, JSON.stringify(next));
+    } else {
+      localStorage.removeItem(SCHEDULER_KEY);
+    }
+    setSchedulerResult(next);
+  };
+
+  const handleGenerateFixtures = () => {
+    const config: SchedulerConfig = {
+      name: schedulerForm.name || "Season",
+      divisions: schedulerForm.divisions,
+      venues: schedulerForm.venues,
+      startDate: schedulerForm.startDate,
+      endDate: schedulerForm.endDate,
+      matchDays: schedulerForm.matchDays,
+      publicHolidayDates: schedulerForm.publicHolidayDates,
+      format: schedulerForm.format,
+      rounds: schedulerForm.rounds,
+      blackoutDates: schedulerForm.blackoutDates,
+    };
+    const fixtures = buildSchedulerFixtures(config);
+    const result: SchedulerResult = { config, fixtures, generatedAt: new Date().toISOString() };
+    persistSchedulerResult(result);
+    setSchedulerView("fixtures");
+  };
+
+  const canGenerate =
+    schedulerForm.startDate &&
+    schedulerForm.endDate &&
+    schedulerForm.divisions.some((d) => d.teams.length >= 2);
+
+  const schedulerGroupedFixtures = useMemo(() => {
+    if (!schedulerResult) return [];
+    const filtered =
+      schedulerDivisionFilter === "all"
+        ? schedulerResult.fixtures
+        : schedulerResult.fixtures.filter((f) => f.divisionId === schedulerDivisionFilter);
+    const groups = new Map<string, typeof filtered>();
+    for (const f of filtered) {
+      const key = f.date || "__unscheduled__";
+      const existing = groups.get(key);
+      if (existing) existing.push(f);
+      else groups.set(key, [f]);
+    }
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => {
+        if (a === "__unscheduled__") return 1;
+        if (b === "__unscheduled__") return -1;
+        return a.localeCompare(b);
+      })
+      .map(([date, fixtures]) => ({ date: date === "__unscheduled__" ? "" : date, fixtures }));
+  }, [schedulerResult, schedulerDivisionFilter]);
+
+  const schedulerUnscheduledCount = useMemo(
+    () => (schedulerResult ? schedulerResult.fixtures.filter((f) => !f.date).length : 0),
+    [schedulerResult],
+  );
+
+  const addDivision = () => {
+    const id = `div-${Date.now()}`;
+    setSchedulerForm((f) => ({ ...f, divisions: [...f.divisions, { id, name: "", teams: [] }] }));
+    setDivTeamDrafts((d) => ({ ...d, [id]: "" }));
+  };
+
+  const removeDivision = (idx: number) => {
+    setSchedulerForm((f) => ({ ...f, divisions: f.divisions.filter((_, i) => i !== idx) }));
+  };
+
+  const renameDivision = (idx: number, name: string) => {
+    setSchedulerForm((f) => ({
+      ...f,
+      divisions: f.divisions.map((d, i) => (i === idx ? { ...d, name } : d)),
+    }));
+  };
+
+  const addTeam = (divIdx: number) => {
+    const divId = schedulerForm.divisions[divIdx].id;
+    const name = (divTeamDrafts[divId] || "").trim();
+    if (!name) return;
+    setSchedulerForm((f) => ({
+      ...f,
+      divisions: f.divisions.map((d, i) =>
+        i === divIdx ? { ...d, teams: [...d.teams, { id: `team-${Date.now()}`, name }] } : d,
+      ),
+    }));
+    setDivTeamDrafts((d) => ({ ...d, [divId]: "" }));
+  };
+
+  const removeTeam = (divIdx: number, teamIdx: number) => {
+    setSchedulerForm((f) => ({
+      ...f,
+      divisions: f.divisions.map((d, i) =>
+        i === divIdx ? { ...d, teams: d.teams.filter((_, ti) => ti !== teamIdx) } : d,
+      ),
+    }));
+  };
+
+  const toggleMatchDay = (day: number) => {
+    setSchedulerForm((f) => ({
+      ...f,
+      matchDays: f.matchDays.includes(day) ? f.matchDays.filter((d) => d !== day) : [...f.matchDays, day],
+    }));
+  };
+
+  const addVenue = () => {
+    const v = schedulerForm.venueDraft.trim();
+    if (!v) return;
+    setSchedulerForm((f) => ({ ...f, venues: [...f.venues, v], venueDraft: "" }));
+  };
+
+  const removeVenue = (idx: number) => {
+    setSchedulerForm((f) => ({ ...f, venues: f.venues.filter((_, i) => i !== idx) }));
+  };
+
+  const addBlackout = () => {
+    const d = schedulerForm.blackoutDraft.trim();
+    if (!d || schedulerForm.blackoutDates.includes(d)) return;
+    setSchedulerForm((f) => ({
+      ...f,
+      blackoutDates: [...f.blackoutDates, d].sort(),
+      blackoutDraft: "",
+    }));
+  };
+
+  const removeBlackout = (idx: number) => {
+    setSchedulerForm((f) => ({ ...f, blackoutDates: f.blackoutDates.filter((_, i) => i !== idx) }));
+  };
+
+  const addPublicHoliday = () => {
+    const d = schedulerForm.publicHolidayDraft.trim();
+    if (!d || schedulerForm.publicHolidayDates.includes(d)) return;
+    setSchedulerForm((f) => ({
+      ...f,
+      publicHolidayDates: [...f.publicHolidayDates, d].sort(),
+      publicHolidayDraft: "",
+    }));
+  };
+
+  const removePublicHoliday = (idx: number) => {
+    setSchedulerForm((f) => ({
+      ...f,
+      publicHolidayDates: f.publicHolidayDates.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const addJulyBreak = () => {
+    const year = schedulerForm.startDate
+      ? parseInt(schedulerForm.startDate.slice(0, 4))
+      : new Date().getFullYear();
+    // Find first three Saturdays of July (day 6)
+    const saturdays: string[] = [];
+    const d = new Date(year, 6, 1); // July 1
+    while (d.getDay() !== 6) d.setDate(d.getDate() + 1);
+    for (let i = 0; i < 3; i++) {
+      saturdays.push(toISODate(d));
+      d.setDate(d.getDate() + 7);
+    }
+    setSchedulerForm((f) => ({
+      ...f,
+      blackoutDates: [...new Set([...f.blackoutDates, ...saturdays])].sort(),
+    }));
   };
 
   const exportFormationImage = async () => {
@@ -5214,6 +5670,344 @@ export default function App() {
                     </div>
                   )}
                 </>
+              )}
+            </div>
+          );
+        }
+
+        return null;
+      })()}
+
+      {activeTab === "scheduler" && (() => {
+        const divisionColors = ["#16a34a", "#0284c7", "#9333ea", "#dc2626", "#d97706", "#0891b2"];
+
+        if (schedulerView === "setup") {
+          return (
+            <div className="schedulerPanel">
+              <header className="schedulerHeader">
+                <div>
+                  <h2>Fixture Scheduler</h2>
+                  <p>Configure the season and generate fixtures for all divisions.</p>
+                </div>
+                <button
+                  type="button"
+                  className="schGenerateBtn"
+                  onClick={handleGenerateFixtures}
+                  disabled={!canGenerate}
+                >
+                  Generate Fixtures
+                </button>
+              </header>
+
+              {/* Card 1: League info */}
+              <div className="schedulerCard">
+                <label className="schLabel">
+                  Season / League name
+                  <input
+                    className="schInput"
+                    type="text"
+                    value={schedulerForm.name}
+                    onChange={(e) => setSchedulerForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="e.g. 2026 Summer Season"
+                  />
+                </label>
+                <div className="schedulerRow2">
+                  <label className="schLabel">
+                    Format
+                    <select
+                      className="schInput"
+                      value={schedulerForm.format}
+                      onChange={(e) => setSchedulerForm((f) => ({ ...f, format: e.target.value }))}
+                    >
+                      <option value="T20">T20</option>
+                      <option value="50 Overs">50 Overs</option>
+                      <option value="Club">Club</option>
+                      <option value="Friendly">Friendly</option>
+                    </select>
+                  </label>
+                  <label className="schLabel">
+                    Rounds
+                    <select
+                      className="schInput"
+                      value={schedulerForm.rounds}
+                      onChange={(e) =>
+                        setSchedulerForm((f) => ({
+                          ...f,
+                          rounds: e.target.value as "single" | "double",
+                        }))
+                      }
+                    >
+                      <option value="single">Single round-robin</option>
+                      <option value="double">Double round-robin</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              {/* Card 2: Season dates + match days */}
+              <div className="schedulerCard">
+                <div className="schedulerRow2">
+                  <label className="schLabel">
+                    Start date
+                    <input
+                      className="schInput"
+                      type="date"
+                      value={schedulerForm.startDate}
+                      onChange={(e) => setSchedulerForm((f) => ({ ...f, startDate: e.target.value }))}
+                    />
+                  </label>
+                  <label className="schLabel">
+                    End date
+                    <input
+                      className="schInput"
+                      type="date"
+                      value={schedulerForm.endDate}
+                      onChange={(e) => setSchedulerForm((f) => ({ ...f, endDate: e.target.value }))}
+                    />
+                  </label>
+                </div>
+                <fieldset className="schedulerMatchDays">
+                  <legend>Match days</legend>
+                  {(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const).map((day, i) => (
+                    <label
+                      key={i}
+                      className={`schedulerDayChip${schedulerForm.matchDays.includes(i) ? " active" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={schedulerForm.matchDays.includes(i)}
+                        onChange={() => toggleMatchDay(i)}
+                      />
+                      {day}
+                    </label>
+                  ))}
+                </fieldset>
+                <div className="schedulerPublicHolidays">
+                  <span className="schSubHeading">Public Holiday / Extra Dates</span>
+                  <p className="schedulerHint">Add specific dates when matches can also be played.</p>
+                  <div className="schedulerTagList">
+                    {schedulerForm.publicHolidayDates.map((d, i) => (
+                      <span key={d} className="schedulerTag">
+                        {formatSchedulerDate(d)}
+                        <button type="button" onClick={() => removePublicHoliday(i)}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="schedulerTeamAdd">
+                    <input
+                      className="schInput"
+                      type="date"
+                      value={schedulerForm.publicHolidayDraft}
+                      onChange={(e) => setSchedulerForm((f) => ({ ...f, publicHolidayDraft: e.target.value }))}
+                    />
+                    <button type="button" className="schAddBtn" onClick={addPublicHoliday}>Add</button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Divisions */}
+              <div className="schedulerCard">
+                <div className="schedulerCardHeader">
+                  <h3>Divisions &amp; Teams</h3>
+                  <button type="button" className="schAddBtn" onClick={addDivision}>+ Add Division</button>
+                </div>
+                {schedulerForm.divisions.length === 0 && (
+                  <p className="schedulerHint">No divisions yet — add one to get started.</p>
+                )}
+                {schedulerForm.divisions.map((div, di) => {
+                  const rounds =
+                    div.teams.length < 2
+                      ? 0
+                      : div.teams.length % 2 === 0
+                        ? div.teams.length - 1
+                        : div.teams.length;
+                  const totalRounds = schedulerForm.rounds === "double" ? rounds * 2 : rounds;
+                  return (
+                    <div className="schedulerDivision" key={div.id}>
+                      <div className="schedulerDivisionHeader">
+                        <input
+                          className="schInput"
+                          value={div.name}
+                          onChange={(e) => renameDivision(di, e.target.value)}
+                          placeholder="Division name"
+                        />
+                        <button type="button" className="schRemoveBtn" onClick={() => removeDivision(di)}>
+                          Remove
+                        </button>
+                      </div>
+                      <div className="schedulerTeamList">
+                        {div.teams.map((team, ti) => (
+                          <span key={team.id} className="schedulerTeamChip">
+                            {team.name}
+                            <button type="button" onClick={() => removeTeam(di, ti)}>×</button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="schedulerTeamAdd">
+                        <input
+                          className="schInput"
+                          placeholder="Team name"
+                          value={divTeamDrafts[div.id] || ""}
+                          onChange={(e) =>
+                            setDivTeamDrafts((d) => ({ ...d, [div.id]: e.target.value }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addTeam(di);
+                            }
+                          }}
+                        />
+                        <button type="button" className="schAddBtn" onClick={() => addTeam(di)}>Add</button>
+                      </div>
+                      <p className="schedulerHint">
+                        {div.teams.length} team{div.teams.length !== 1 ? "s" : ""}
+                        {totalRounds > 0 ? ` · ${totalRounds} rounds` : ""}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Card 4: Venues */}
+              <div className="schedulerCard">
+                <div className="schedulerCardHeader">
+                  <h3>Venues <span className="schOptional">(optional)</span></h3>
+                </div>
+                <div className="schedulerTagList">
+                  {schedulerForm.venues.map((v, i) => (
+                    <span key={i} className="schedulerTag">
+                      {v}
+                      <button type="button" onClick={() => removeVenue(i)}>×</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="schedulerTeamAdd">
+                  <input
+                    className="schInput"
+                    placeholder="Ground / Oval name"
+                    value={schedulerForm.venueDraft}
+                    onChange={(e) => setSchedulerForm((f) => ({ ...f, venueDraft: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addVenue();
+                      }
+                    }}
+                  />
+                  <button type="button" className="schAddBtn" onClick={addVenue}>Add</button>
+                </div>
+              </div>
+
+              {/* Card 5: Blackout dates */}
+              <div className="schedulerCard">
+                <div className="schedulerCardHeader">
+                  <h3>Blackout Dates <span className="schOptional">(optional)</span></h3>
+                  <button type="button" className="schChip" onClick={addJulyBreak}>
+                    + July break (3 wks)
+                  </button>
+                </div>
+                <div className="schedulerTagList">
+                  {schedulerForm.blackoutDates.map((d, i) => (
+                    <span key={d} className="schedulerTag">
+                      {formatSchedulerDate(d)}
+                      <button type="button" onClick={() => removeBlackout(i)}>×</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="schedulerTeamAdd">
+                  <input
+                    className="schInput"
+                    type="date"
+                    value={schedulerForm.blackoutDraft}
+                    onChange={(e) => setSchedulerForm((f) => ({ ...f, blackoutDraft: e.target.value }))}
+                  />
+                  <button type="button" className="schAddBtn" onClick={addBlackout}>Add</button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        if (schedulerView === "fixtures" && schedulerResult) {
+          const { config, fixtures } = schedulerResult;
+          return (
+            <div className="schedulerPanel">
+              <header className="schedulerHeader">
+                <div>
+                  <h2>{config.name || "Season Fixtures"}</h2>
+                  <p>
+                    {fixtures.length} fixture{fixtures.length !== 1 ? "s" : ""}
+                    {schedulerUnscheduledCount > 0 && (
+                      <span className="schWarnBadge"> · ⚠ {schedulerUnscheduledCount} unscheduled</span>
+                    )}
+                  </p>
+                </div>
+                <div className="schedulerHeaderActions">
+                  <select
+                    className="schInput"
+                    value={schedulerDivisionFilter}
+                    onChange={(e) => setSchedulerDivisionFilter(e.target.value)}
+                  >
+                    <option value="all">All divisions</option>
+                    {config.divisions.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name || "Unnamed"}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="schAddBtn"
+                    onClick={() => exportSchedulerText(schedulerResult)}
+                  >
+                    Export
+                  </button>
+                  <button
+                    type="button"
+                    className="schChip"
+                    onClick={() => setSchedulerView("setup")}
+                  >
+                    ← Edit
+                  </button>
+                </div>
+              </header>
+
+              {schedulerUnscheduledCount > 0 && (
+                <div className="schedulerWarning">
+                  ⚠ {schedulerUnscheduledCount} fixture{schedulerUnscheduledCount !== 1 ? "s" : ""} have no
+                  date — extend the season or add more match days.
+                </div>
+              )}
+
+              {schedulerGroupedFixtures.map(({ date, fixtures: group }) => (
+                <div className="schedulerDateGroup" key={date || "__unscheduled__"}>
+                  <h3 className="schedulerDateHeading">
+                    {date ? formatSchedulerDate(date) : "Unscheduled"}
+                  </h3>
+                  {group.map((f) => {
+                    const divIdx = config.divisions.findIndex((d) => d.id === f.divisionId);
+                    const color = divisionColors[divIdx % divisionColors.length] || "#16a34a";
+                    return (
+                      <div className="schedulerFixtureRow" key={f.id}>
+                        <span className="schedulerDivBadge" style={{ background: color }}>
+                          {f.divisionName || "Div"}
+                        </span>
+                        <span className="schedulerTeams">
+                          <strong>{f.homeTeam}</strong>
+                          <em> vs </em>
+                          <strong>{f.awayTeam}</strong>
+                        </span>
+                        {f.venue && <span className="schedulerVenue">{f.venue}</span>}
+                        <span className="schedulerRound">Rd {f.round}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+
+              {fixtures.length === 0 && (
+                <p className="schedulerHint" style={{ textAlign: "center", padding: "24px 0" }}>
+                  No fixtures generated.
+                </p>
               )}
             </div>
           );

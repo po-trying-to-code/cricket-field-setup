@@ -1,0 +1,394 @@
+/* Scheduler tab styles — Admin → Scheduler */
+
+.schedulerPanel {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  text-align: left;
+}
+
+.schedulerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.schedulerHeader h2 {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--c-green-dark, #052e12);
+  margin: 0 0 2px;
+}
+
+.schedulerHeader p {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.schedulerHeaderActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.schedulerCard {
+  background: #fff;
+  border: 1px solid #d1e7d8;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.schedulerCard h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-green-dark, #052e12);
+  margin: 0;
+}
+
+.schedulerCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.schedulerRow2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.schLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.schInput {
+  padding: 6px 8px;
+  border: 1px solid #d1e7d8;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #f9fafb;
+  color: #111827;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.schInput:focus {
+  outline: none;
+  border-color: var(--c-green-mid, #0f5c2e);
+}
+
+.schSubHeading {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.schOptional {
+  font-size: 11px;
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+/* Match-day checkboxes */
+.schedulerMatchDays {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.schedulerMatchDays legend {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.schedulerDayChip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #d1e7d8;
+  background: #f9fafb;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+}
+
+.schedulerDayChip input[type="checkbox"] {
+  display: none;
+}
+
+.schedulerDayChip.active {
+  background: var(--c-gold, #f59e0b);
+  border-color: #d97706;
+  color: #fff;
+}
+
+/* Public holidays sub-section */
+.schedulerPublicHolidays {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 8px;
+}
+
+/* Tags (venues, blackouts, public holidays) */
+.schedulerTagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.schedulerTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 10px;
+  background: #f0fdf4;
+  border: 1px solid #d1e7d8;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.schedulerTag button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: #9ca3af;
+}
+
+.schedulerTag button:hover {
+  color: #ef4444;
+}
+
+/* Division cards */
+.schedulerDivision {
+  border: 1px solid #d1e7d8;
+  border-left: 3px solid var(--c-gold, #f59e0b);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.schedulerDivisionHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.schedulerDivisionHeader .schInput {
+  flex: 1;
+}
+
+.schedulerTeamList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.schedulerTeamChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 10px;
+  background: #f0fdf4;
+  border: 1px solid #d1e7d8;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.schedulerTeamChip button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: #9ca3af;
+}
+
+.schedulerTeamChip button:hover {
+  color: #ef4444;
+}
+
+.schedulerTeamAdd {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+}
+
+.schedulerHint {
+  font-size: 11px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Buttons */
+.schGenerateBtn {
+  padding: 8px 16px;
+  background: var(--c-green-dark, #052e12);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.schGenerateBtn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.schGenerateBtn:not(:disabled):hover {
+  background: var(--c-green-mid, #0f5c2e);
+}
+
+.schAddBtn {
+  padding: 6px 12px;
+  background: var(--c-green-mid, #0f5c2e);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.schAddBtn:hover {
+  background: var(--c-green-dark, #052e12);
+}
+
+.schChip {
+  padding: 4px 10px;
+  background: #f0fdf4;
+  border: 1px solid #d1e7d8;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-green-mid, #0f5c2e);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.schChip:hover {
+  background: #dcfce7;
+}
+
+.schRemoveBtn {
+  padding: 4px 8px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #dc2626;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.schRemoveBtn:hover {
+  background: #fee2e2;
+}
+
+/* Warning banner */
+.schedulerWarning {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #92400e;
+}
+
+/* Fixtures view */
+.schedulerDateGroup {
+  background: #fff;
+  border: 1px solid #d1e7d8;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.schedulerDateHeading {
+  font-size: 11px;
+  font-weight: 800;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.schedulerFixtureRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d1e7d8;
+  border-radius: 8px;
+  padding: 7px 10px;
+  flex-wrap: wrap;
+}
+
+.schedulerDivBadge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.schedulerTeams {
+  flex: 1;
+  font-size: 13px;
+  min-width: 120px;
+}
+
+.schedulerTeams em {
+  font-style: normal;
+  color: #6b7280;
+}
+
+.schedulerVenue {
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.schedulerRound {
+  font-size: 11px;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.schWarnBadge {
+  color: #d97706;
+}
